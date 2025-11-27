@@ -44,4 +44,10 @@ plt.legend()
 plt.grid(True, which="both")
 plt.show()
 
+#----------------------------------------------------------------------------
+# general 3-point (2nd order) central difference function
+def w2_2nd_general(f, x, h, *f_args):
+    return (f(x + h, *f_args) - 2*f(x, *f_args) + f(x - h, *f_args)) / h**2
+
+
 
