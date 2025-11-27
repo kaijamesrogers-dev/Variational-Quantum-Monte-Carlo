@@ -88,3 +88,5 @@ for i in range(100000):
     energy += 1/100000 * ((- 1 / (2 * np.exp(- theta * r[i])) * (w2_2nd_general(psix, samples[i, 0], 1e-5, samples[i]) + w2_2nd_general(psiy, samples[i, 1], 1e-5, samples[i]) + w2_2nd_general(psiz, samples[i, 2], 1e-5, samples[i]))) + (-1 / r[i]))
 
 print("Estimated Energy Expectation Value:", energy)
+
+def monte_carlo_minimisation
