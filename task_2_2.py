@@ -60,7 +60,7 @@ def metropolis_hastings(step_size, pdf, iterations):
 
     return x
 
-samples = metropolis_hastings(0.5, pdf0, 100000)
+samples = metropolis_hastings(0.5, pdf0, 1000)
 
 #plot histogram of samples
 #plt.hist(samples, bins=50, density=True, alpha=0.6, label='Samples Histogram')

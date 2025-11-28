@@ -17,20 +17,20 @@ def lcg_random(seed, n):
 
 theta = 1.0
 
-def psix(x, xyz, theta=theta):
+def psix(x, xyz, theta):
     return np.exp(- theta * np.sqrt(x ** 2 + xyz[1] ** 2 + xyz[2] ** 2))
 
-def psiy(x, xyz, theta=theta):
+def psiy(x, xyz, theta):
     return np.exp(- theta * np.sqrt(xyz[0] ** 2 + x ** 2 + xyz[2] ** 2))
 
-def psiz(x, xyz, theta=theta):
+def psiz(x, xyz, theta):
     return np.exp(- theta * np.sqrt(xyz[0] ** 2 + xyz[1] ** 2 + x ** 2))
 
-def pdf_xyz(x, y, z, theta=theta):
+def pdf_xyz(x, y, z, theta):
     r = np.sqrt(x**2 + y**2 + z**2)
     return (theta**3 / np.pi) * np.exp(-2 * theta * r)
 
-def metropolis_hastings_3d(step_size, pdf, iterations, theta=theta, seed=SEED):
+def metropolis_hastings_3d(step_size, pdf, iterations, theta, seed=SEED):
     """
     3D Metropolis–Hastings sampler.
 
@@ -80,15 +80,64 @@ def metropolis_hastings_3d(step_size, pdf, iterations, theta=theta, seed=SEED):
 
     return samples
 
-samples = metropolis_hastings_3d(0.5, pdf_xyz, 100000, theta, SEED)
-r = np.linalg.norm(samples, axis=1)
+#samples = metropolis_hastings_3d(0.5, pdf_xyz, 100000, theta, SEED)
 
-energy = 0
-for i in range(100000):
-    energy += 1/100000 * ((- 1 / (2 * np.exp(- theta * r[i])) * (w2_2nd_general(psix, samples[i, 0], 1e-5, samples[i]) + w2_2nd_general(psiy, samples[i, 1], 1e-5, samples[i]) + w2_2nd_general(psiz, samples[i, 2], 1e-5, samples[i]))) + (-1 / r[i]))
+def energy(samples, theta):
+    r = np.linalg.norm(samples, axis=1)
+    N = samples.shape[0]
+    E = 0.0
+    h = 1e-4  # slightly bigger h is fine
 
-print("Estimated Energy Expectation Value:", energy)
+    for i in range(N):
+        xyz = samples[i]
+        ri  = r[i]
+        if ri == 0:
+            continue
 
-def monte_carlo_minimisation(step_size, pdf, iterations, theta=theta, T, seed=SEED):
-    
-    )
+        lap = (w2_2nd_general(psix, xyz[0], h, xyz, theta) +
+               w2_2nd_general(psiy, xyz[1], h, xyz, theta) +
+               w2_2nd_general(psiz, xyz[2], h, xyz, theta))
+
+        psi_val = np.exp(-theta * ri)
+
+        El = -0.5 * lap / psi_val - 1.0 / ri
+        E += El
+
+    return E / N
+
+#print("Estimated Energy Expectation Value:", energy(samples, theta))
+
+def monte_carlo_minimisation(step_size, pdf, iterations, T, theta = theta, seed=SEED):
+    u = lcg_random(seed, 2 * iterations)
+    n = 0
+    samples = metropolis_hastings_3d(step_size, pdf, iterations * 30, theta, seed)
+    E = energy(samples, theta)
+    for i in range(iterations):
+        theta_dash = theta + step_size * (2 * u[i] - 1)
+        samples_dash = metropolis_hastings_3d(step_size, pdf, iterations * 30, theta_dash, seed)
+        E_dash = energy(samples_dash, theta_dash)
+
+        delta_E = E_dash - E
+
+        if delta_E > 0:
+            alpha = np.exp(- delta_E / T)
+            random = u[2 * i]
+            if random < alpha:
+                theta = theta_dash
+                E = E_dash
+        else:
+            theta = theta_dash
+            E = E_dash
+
+        n += 1
+        if n == 10:
+            T = T * 0.8
+            n = 0
+
+    return theta
+
+opt_theta = monte_carlo_minimisation(0.5, pdf_xyz, 100, 1e-20, theta, SEED)
+print("Optimized Theta:", opt_theta)
+
+samples_optimized = metropolis_hastings_3d(0.5, pdf_xyz, 10000, opt_theta, SEED)
+print("Estimated Energy Expectation Value with Optimized Theta:", energy(samples_optimized, opt_theta))
