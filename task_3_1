@@ -89,4 +89,6 @@ for i in range(100000):
 
 print("Estimated Energy Expectation Value:", energy)
 
-def monte_carlo_minimisation
+def monte_carlo_minimisation(step_size, pdf, iterations, theta=theta, T, seed=SEED):
+    
+    )
