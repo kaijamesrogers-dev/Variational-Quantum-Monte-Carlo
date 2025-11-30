@@ -1,0 +1,10 @@
+import numpy as np
+from task_3_1 import monte_carlo_minimisation#, metropolis_hastings_3d
+
+#define new pdf for a system with 2 protons
+def pdf(r_a, r_b, theta):
+    return np.exp(- 2 *theta * r_a) + 2 * np.exp(- theta * r_a - theta * r_b) + np.exp(- 2 * theta * r_b)
+
+optimized_theta = monte_carlo_minimisation(0.5, pdf, 100, 1e-20, theta=1.0, seed=7)
+print("Optimized Theta for 2-Proton System:", optimized_theta)
+

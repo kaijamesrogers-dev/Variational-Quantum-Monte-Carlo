@@ -60,18 +60,18 @@ def metropolis_hastings(step_size, pdf, iterations):
 
     return x
 
-samples = metropolis_hastings(0.5, pdf0, 1000)
+samples = metropolis_hastings(0.5, pdf0, 100000)
 
 #plot histogram of samples
-#plt.hist(samples, bins=50, density=True, alpha=0.6, label='Samples Histogram')
+plt.hist(samples, bins=50, density=True, alpha=0.6, label='Samples Histogram')
 #plot pdf  
 r = np.arange(-5, 5, 0.1)
-#plt.plot(r, pdf0(r), label='PDF', color='red')
-#plt.title('Metropolis-Hastings Sampling')
-#plt.xlabel('Value')
-#plt.ylabel('Density')
-#plt.legend()
-#plt.show()
+plt.plot(r, pdf0(r), label='PDF', color='red')
+plt.title('Metropolis-Hastings Sampling')
+plt.xlabel('Value')
+plt.ylabel('Density')
+plt.legend()
+plt.show()
 
 #----------------------------------------------------------------------------
 
