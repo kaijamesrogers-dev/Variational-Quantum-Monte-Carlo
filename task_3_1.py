@@ -136,8 +136,8 @@ def monte_carlo_minimisation(step_size, pdf, iterations, T, theta = theta, seed=
 
     return theta
 
-opt_theta = monte_carlo_minimisation(0.5, pdf_xyz, 100, 1e-20, theta, SEED)
-print("Optimized Theta:", opt_theta)
+#opt_theta = monte_carlo_minimisation(0.5, pdf_xyz, 100, 1e-20, theta, SEED)
+#print("Optimized Theta:", opt_theta)
 
-samples_optimized = metropolis_hastings_3d(0.5, pdf_xyz, 10000, opt_theta, SEED)
-print("Estimated Energy Expectation Value with Optimized Theta:", energy(samples_optimized, opt_theta))
+#samples_optimized = metropolis_hastings_3d(0.5, pdf_xyz, 10000, opt_theta, SEED)
+#print("Estimated Energy Expectation Value with Optimized Theta:", energy(samples_optimized, opt_theta))
