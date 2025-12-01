@@ -1,6 +1,11 @@
+import time
+start = time.time()
+#------------------
+
 import numpy as np
 from task_3_1 import lcg_random
 import matplotlib.pyplot as plt
+
 
 SEED = 42
 THETA_INITIAL = 1.0
@@ -8,22 +13,32 @@ q_1 = np.array([0.7, 0.0, 0.0])  # position of proton 1
 q_2 = np.array([-0.7, 0.0, 0.0])  # position of proton 2
 q = np.array([q_1, q_2])
 
-#new wavefunction for 2 protons in 3D
+
+
 def psi_h2(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2):
-    """
-    Hydrogen molecule trial wavefunction ω(r1, r2; θ1, θ2, θ3)
-    from eq. (18) of the project script.
+    """Trial wavefunction ω(r1, r2; θ1, θ2, θ3) for the H₂ molecule.
+
+    Parameters
+    ----------
+    x_a, y_a, z_a : float
+        Coordinates of electron A.
+    x_b, y_b, z_b : float
+        Coordinates of electron B.
+    theta1, theta2, theta3 : float
+        Variational parameters (see project equation 18).
+    q1, q2 : array_like
+        Positions of the two protons.
     """
     r1 = np.array([x_a, y_a, z_a])
     r2 = np.array([x_b, y_b, z_b])
 
-    # distances to nuclei
+    # Distances to nuclei (small epsilon avoids division-by-zero later)
     r1_q1 = np.linalg.norm(r1 - q1)
     r1_q2 = np.linalg.norm(r1 - q2)
     r2_q1 = np.linalg.norm(r2 - q1)
     r2_q2 = np.linalg.norm(r2 - q2)
 
-    # electron–electron distance
+    # Electron–electron distance
     r12 = np.linalg.norm(r1 - r2)
 
     # Slater-like part (the bracket in eq. 18)
@@ -37,19 +52,27 @@ def psi_h2(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2):
 
     return slater * jastrow
 
-#new probability density function for 2 protons in 3D
+
+
 def pdf_xyz(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2):
+    """Probability density |ω|² for the H₂ trial wavefunction."""
     psi = psi_h2(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2)
-    return psi**2   # |ω|^2
+    return psi**2
 
-# new metropolis function for 2 protons in 3D
+
+def _propose_step(current, step_vec):
+    """Generate a proposed position by adding the random step."""
+    return current + step_vec
+
+
+
 def metropolis_2protons(step_size, pdf, iterations, theta1, theta2, theta3, q_1, q_2, seed=SEED):
-    """
-    3D Metropolis–Hastings sampler.
+    """Run a 3D Metropolis–Hastings chain for two electrons.
 
-    Returns:
-        samples: array of shape (iterations, 6)
-                 each row is [x_a, y_a, z_a, x_b, y_b, z_b]
+    Returns
+    -------
+    samples : ndarray
+        Array with shape (iterations, 6) storing [x_a, y_a, z_a, x_b, y_b, z_b].
     """
     # 6 uniforms for initial point + (6 for proposal + 1 for accept) per step
     n_uniform = 6 + 7 * (iterations - 1)
@@ -58,105 +81,109 @@ def metropolis_2protons(step_size, pdf, iterations, theta1, theta2, theta3, q_1,
 
     samples = np.zeros((iterations, 6))
 
-    # Initial point in [-1, 1]^3 for both protons
-    samples[0, :3] = (u[idx:idx+3] - 0.5) * 2.0
-    samples[0, 3:] = (u[idx+3:idx+6] - 0.5) * 2.0
+    # Initial point in [-1, 1]^3 for both electrons
+    samples[0, :3] = (u[idx:idx + 3] - 0.5) * 2.0
+    samples[0, 3:] = (u[idx + 3:idx + 6] - 0.5) * 2.0
     idx += 6
 
     for i in range(1, iterations):
-        x_a_current, y_a_current, z_a_current = samples[i-1, :3]
-        x_b_current, y_b_current, z_b_current = samples[i-1, 3:]
-
-        # Proposal step in each coordinate
-        u_step = u[idx:idx+6]
+        current = samples[i - 1]
+        proposal_steps = step_size * (2 * u[idx:idx + 6] - 1)  # each in [-step_size, step_size]
         idx += 6
-        step_vec = step_size * (2 * u_step - 1)  # each in [-step_size, step_size]
 
-        x_a_prop = x_a_current + step_vec[0]
-        y_a_prop = y_a_current + step_vec[1]
-        z_a_prop = z_a_current + step_vec[2]
-        x_b_prop = x_b_current + step_vec[3]
-        y_b_prop = y_b_current + step_vec[4]
-        z_b_prop = z_b_current + step_vec[5]
+        proposal = _propose_step(current, proposal_steps)
 
         # Acceptance uniform
         u_accept = u[idx]
         idx += 1
 
-        p_current = pdf(x_a_current, y_a_current, z_a_current, x_b_current, y_b_current, z_b_current, theta1, theta2, theta3, q_1, q_2)
-        p_prop    = pdf(x_a_prop,    y_a_prop,    z_a_prop,    x_b_prop,    y_b_prop,    z_b_prop,    theta1, theta2, theta3, q_1, q_2)
+        p_current = pdf(*current, theta1, theta2, theta3, q_1, q_2)
+        p_prop = pdf(*proposal, theta1, theta2, theta3, q_1, q_2)
 
         if p_current <= 0:
             alpha = 1.0    # if current state is impossible, move
         else:
             alpha = min(1.0, p_prop / p_current)
 
-        if u_accept < alpha:
-            samples[i, :] = [x_a_prop, y_a_prop, z_a_prop, x_b_prop, y_b_prop, z_b_prop]
-        else:
-            samples[i, :] = [x_a_current, y_a_current, z_a_current, x_b_current, y_b_current, z_b_current]
+        samples[i, :] = proposal if u_accept < alpha else current
 
     return samples
 
-#samples_2protons = metropolis_2protons(0.5, pdf_xyz, 100000, THETA_INITIAL, THETA_INITIAL, THETA_INITIAL, q_1, q_2, SEED)
 
-def w2_2nd_2_protons_xa(f, x_a, y_a, z_a, x_b, y_b, z_b, h, *f_args):
-    return (f(x_a + h, y_a, z_a, x_b, y_b, z_b, *f_args) - 2*f(x_a, y_a, z_a, x_b, y_b, z_b, *f_args) + f(x_a - h, y_a, z_a, x_b, y_b, z_b, *f_args)) / h**2
-    
-def w2_2nd_2_protons_ya(f, x_a, y_a, z_a, x_b, y_b, z_b, h, *f_args):
-    return (f(x_a, y_a + h, z_a, x_b, y_b, z_b, *f_args) - 2*f(x_a, y_a, z_a, x_b, y_b, z_b, *f_args) + f(x_a, y_a - h, z_a, x_b, y_b, z_b, *f_args)) / h**2
+def _distances(r1, r2, q1, q2, eps=1e-12):
+    """Compute distances needed for the Hamiltonian terms."""
+    r1_q1 = np.linalg.norm(r1 - q1)
+    r1_q2 = np.linalg.norm(r1 - q2)
+    r2_q1 = np.linalg.norm(r2 - q1)
+    r2_q2 = np.linalg.norm(r2 - q2)
+    r12 = np.linalg.norm(r1 - r2)
 
-def w2_2nd_2_protons_za(f, x_a, y_a, z_a, x_b, y_b, z_b, h, *f_args):
-    return (f(x_a, y_a, z_a + h, x_b, y_b, z_b, *f_args) - 2*f(x_a, y_a, z_a, x_b, y_b, z_b, *f_args) + f(x_a, y_a, z_a - h, x_b, y_b, z_b, *f_args)) / h**2
+    # Add tiny epsilons to avoid division-by-zero spikes in the potential
+    return (
+        r1_q1 + eps,
+        r1_q2 + eps,
+        r2_q1 + eps,
+        r2_q2 + eps,
+        r12 + eps,
+    )
 
-def w2_2nd_2_protons_xb(f, x_a, y_a, z_a, x_b, y_b, z_b, h, *f_args):
-    return (f(x_a, y_a, z_a, x_b + h, y_b, z_b, *f_args) - 2*f(x_a, y_a, z_a, x_b, y_b, z_b, *f_args) + f(x_a, y_a, z_a, x_b - h, y_b, z_b, *f_args)) / h**2   
 
-def w2_2nd_2_protons_yb(f, x_a, y_a, z_a, x_b, y_b, z_b, h, *f_args):
-    return (f(x_a, y_a, z_a, x_b, y_b + h, z_b, *f_args) - 2*f(x_a, y_a, z_a, x_b, y_b, z_b, *f_args) + f(x_a, y_a, z_a, x_b, y_b - h, z_b, *f_args)) / h**2
+def _laplacian_2e_3d(f, r1, r2, h, *f_args):
+    """Central-difference Laplacian for two 3D electrons.
 
-def w2_2nd_2_protons_zb(f, x_a, y_a, z_a, x_b, y_b, z_b, h, *f_args):
-    return (f(x_a, y_a, z_a, x_b, y_b, z_b + h, *f_args) - 2*f(x_a, y_a, z_a, x_b, y_b, z_b, *f_args) + f(x_a, y_a, z_a, x_b, y_b, z_b - h, *f_args)) / h**2
+    The base value ``f(r1, r2)`` is computed once and reused for all six
+    second derivatives to avoid redundant work.
+    """
+    coords = np.array([r1, r2], copy=True)
+    base_val = f(*coords[0], *coords[1], *f_args)
+    laplacian = 0.0
+
+    for e_idx in range(2):
+        for dim in range(3):
+            coords_plus = coords.copy()
+            coords_minus = coords.copy()
+            coords_plus[e_idx, dim] += h
+            coords_minus[e_idx, dim] -= h
+
+            f_plus = f(*coords_plus[0], *coords_plus[1], *f_args)
+            f_minus = f(*coords_minus[0], *coords_minus[1], *f_args)
+  
+            laplacian += (f_plus - 2.0 * base_val + f_minus)
+
+    return laplacian / (h ** 2), base_val
+
 
 def energy(samples, theta1, theta2, theta3, q):
-    N = samples.shape[0]
+    """Estimate the energy expectation value for the given samples."""
+    n_samples = samples.shape[0]
     E = 0.0
+    q12 = np.linalg.norm(q[0] - q[1]) + 1e-12
 
-    for i in range(N):
-        x_a, y_a, z_a, x_b, y_b, z_b = samples[i, :]
+    # Small step for the finite-difference Laplacian
+    h = 1e-4
 
-        r1 = np.array([x_a, y_a, z_a])
-        r2 = np.array([x_b, y_b, z_b])
+    for i in range(n_samples):
+        r1 = samples[i, :3]
+        r2 = samples[i, 3:]
 
-        r1_q1 = np.linalg.norm(r1 - q[0])
-        r1_q2 = np.linalg.norm(r1 - q[1])
-        r2_q1 = np.linalg.norm(r2 - q[0])
-        r2_q2 = np.linalg.norm(r2 - q[1])
-        q12 = np.linalg.norm(q[0] - q[1])
-        r12 = np.linalg.norm(r1 - r2)
-    
- 
-        # Kinetic energy term (using finite difference approximation)
-        h = 1e-4
-        psi = psi_h2(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q[0], q[1])
+        r1_q1, r1_q2, r2_q1, r2_q2, r12 = _distances(r1, r2, q[0], q[1])
 
-        El = (- 1 / (2 * psi) * (
-            w2_2nd_2_protons_xa(psi_h2, x_a, y_a, z_a, x_b, y_b, z_b, h, theta1, theta2, theta3, q[0], q[1]) +
-            w2_2nd_2_protons_ya(psi_h2, x_a, y_a, z_a, x_b, y_b, z_b, h, theta1, theta2, theta3, q[0], q[1]) +
-            w2_2nd_2_protons_za(psi_h2, x_a, y_a, z_a, x_b, y_b, z_b, h, theta1, theta2, theta3, q[0], q[1]) +
-            w2_2nd_2_protons_xb(psi_h2, x_a, y_a, z_a, x_b, y_b, z_b, h, theta1, theta2, theta3, q[0], q[1]) +
-            w2_2nd_2_protons_yb(psi_h2, x_a, y_a, z_a, x_b, y_b, z_b, h, theta1, theta2, theta3, q[0], q[1]) +
-            w2_2nd_2_protons_zb(psi_h2, x_a, y_a, z_a, x_b, y_b, z_b, h, theta1, theta2, theta3, q[0], q[1])) -
-            1 / r1_q1 - 1 / r1_q2 - 1 / r2_q1 - 1 / r2_q2 + 1 / q12 + 1 / r12)
-        
+        laplacian, psi_val = _laplacian_2e_3d(
+            psi_h2, r1, r2, h, theta1, theta2, theta3, q[0], q[1]
+        )
+
+        potential = -1 / r1_q1 - 1 / r1_q2 - 1 / r2_q1 - 1 / r2_q2 + 1 / q12 + 1 / r12
+        El = -(0.5 / psi_val) * laplacian + potential
+
         E += El
 
-    return E / N
+    return E / n_samples
 
-#new minimisation function for 2 protons
+
 def monte_carlo_minimisation_2protons(step_size, pdf, iterations, T,
                                       theta=THETA_INITIAL, seed=SEED):
     # Draw ONE chain at the start, using the initial theta
+    """Simple simulated annealing on θ₁, θ₂, θ₃ using a reused chain."""
     theta1 = theta
     theta2 = theta
     theta3 = theta
@@ -171,9 +198,7 @@ def monte_carlo_minimisation_2protons(step_size, pdf, iterations, T,
     n = 0
 
     for i in range(iterations):
-        du1 = 2 * u[3*i    ] - 1
-        du2 = 2 * u[3*i + 1] - 1
-        du3 = 2 * u[3*i + 2] - 1
+        du1, du2, du3 = 2 * u[3 * i:3 * i + 3] - 1
 
         theta1_dash = theta1 + step_size * du1
         theta2_dash = theta2 + step_size * du2
@@ -209,9 +234,14 @@ def monte_carlo_minimisation_2protons(step_size, pdf, iterations, T,
     return theta1, theta2, theta3
 
 
-theta1,theta2, theta3 = monte_carlo_minimisation_2protons(0.5, pdf_xyz, 100, 1.0, THETA_INITIAL, SEED)
+theta1, theta2, theta3 = monte_carlo_minimisation_2protons(0.5, pdf_xyz, 100, 1.0, THETA_INITIAL, SEED)
 print("Optimized theta values for H2 molecule:", theta1, theta2, theta3)
 
 energy_estimate = energy(metropolis_2protons(0.5, pdf_xyz, 10000,
                                   theta1, theta2, theta3, q_1, q_2, SEED), theta1, theta2, theta3, q)
 print("Estimated Energy Expectation Value for H2 molecule:", energy_estimate)
+
+
+#-------------------------------------------
+end = time.time()
+print(f"Run time: {end - start:.5f} seconds")
