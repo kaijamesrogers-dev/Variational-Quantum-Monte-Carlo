@@ -248,7 +248,7 @@ def monte_carlo_minimisation_2protons(step_size, pdf, iterations, T,
     theta2 = theta
     theta3 = theta
 
-    samples = metropolis_2protons_multi(step_size, pdf, 100, 50,
+    samples = metropolis_2protons_multi(step_size, pdf, 1000, 50,
                                   theta1, theta2, theta3, q_1, q_2, seed)
 
     E = energy(samples, theta1, theta2, theta3, q)
@@ -272,7 +272,7 @@ def monte_carlo_minimisation_2protons(step_size, pdf, iterations, T,
             continue
 
 
-        samples_dash = metropolis_2protons_multi(step_size, pdf, 100, 50,
+        samples_dash = metropolis_2protons_multi(step_size, pdf, 1000, 50,
                                   theta1_dash, theta2_dash, theta3_dash, q_1, q_2, seed)
         E_dash = energy(samples_dash, theta1_dash, theta2_dash, theta3_dash, q)
 
@@ -390,14 +390,15 @@ def bond_length(step_size, pdf, iterations, T, r_min, r_max, THETA_INITIAL, SEED
     plt.show()
 
 
-#theta1, theta2, theta3 = monte_carlo_minimisation_2protons(0.5, pdf_xyz, 100, 0.5, THETA_INITIAL, SEED)
-#print("Optimized theta values for H2 molecule:", theta1, theta2, theta3)
+theta1, theta2, theta3 = monte_carlo_minimisation_2protons(0.5, pdf_xyz, 100, 0.5, THETA_INITIAL, SEED)
+print("Optimized theta values for H2 molecule:", theta1, theta2, theta3)
 
-#energy_estimate = energy(metropolis_2protons_multi(0.5, pdf_xyz, 1000, 100,
-#                                  theta1, theta2, theta3, q_1, q_2, SEED), theta1, theta2, theta3, q)
-#print("Estimated Energy Expectation Value for H2 molecule:", energy_estimate)
-#plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2)
-bond_length(0.5, pdf_xyz, 100, 0.5, 3, 13, THETA_INITIAL, SEED)
+energy_estimate = energy(metropolis_2protons_multi(0.5, pdf_xyz, 1000, 100,
+                                  theta1, theta2, theta3, q_1, q_2, SEED), theta1, theta2, theta3, q)
+print("Estimated Energy Expectation Value for H2 molecule:", energy_estimate)
+
+plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2)
+#bond_length(0.5, pdf_xyz, 100, 0.5, 3, 13, THETA_INITIAL, SEED)
 #-------------------------------------------
 end = time.time()
 print(f"Run time: {end - start:.5f} seconds")
