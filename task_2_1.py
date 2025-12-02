@@ -29,20 +29,20 @@ for h in hs:
     errors_4th.append(abs(w2_4th(x0,h) - w2_exact(x0)))
 
 # Plot
-#plt.figure(figsize=(7,5))
-#plt.loglog(hs, errors_2nd, label="2nd-order (3-point)", linewidth=2)
-#plt.loglog(hs, errors_4th, label="4th-order (5-point)", linewidth=2)
+plt.figure(figsize=(7,5))
+plt.loglog(hs, errors_2nd, label="2nd-order (3-point)", linewidth=2)
+plt.loglog(hs, errors_4th, label="4th-order (5-point)", linewidth=2)
 
 # Plot reference slopes h^2 and h^4
-#plt.loglog(hs, hs**2 * errors_2nd[10]/hs[10]**2, 'k--', label='slope = 2')
-#plt.loglog(hs, hs**4 * errors_4th[10]/hs[10]**4, 'k:', label='slope = 4')
+plt.loglog(hs, hs**2 * errors_2nd[10]/hs[10]**2, 'k--', label='slope = 2')
+plt.loglog(hs, hs**4 * errors_4th[10]/hs[10]**4, 'k:', label='slope = 4')
 
-#plt.xlabel("h")
-#plt.ylabel("Error in second derivative")
-#plt.title("Finite Difference Error Scaling")
-#plt.legend()
-#plt.grid(True, which="both")
-#plt.show()
+plt.xlabel("h")
+plt.ylabel("Error in second derivative")
+plt.title("Finite Difference Error Scaling")
+plt.legend()
+plt.grid(True, which="both")
+plt.show()
 
 #----------------------------------------------------------------------------
 # general 3-point (2nd order) central difference function

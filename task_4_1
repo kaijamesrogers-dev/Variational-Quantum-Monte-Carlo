@@ -8,38 +8,51 @@ import matplotlib.pyplot as plt
 
 
 SEED = 42
-THETA_INITIAL = 1.0
+THETA_INITIAL = 0.5
 q_1 = np.array([0.7, 0.0, 0.0])  # position of proton 1
-q_2 = np.array([-0.7, 0.0, 0.0])  # position of proton 2
+q_2 = np.array([- 0.7, 0.0, 0.0])  # position of proton 2
 q = np.array([q_1, q_2])
 
 
 
 def psi_h2(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2):
-    """Trial wavefunction ω(r1, r2; θ1, θ2, θ3) for the H₂ molecule.
+    """
+    Trial wavefunction ω(r1, r2; θ1, θ2, θ3) for the H₂ molecule.
+
+    This version is vectorised over the electron coordinates:
+    x_a, y_a, ... can be scalars OR 1D NumPy arrays of shape (n_walkers,).
 
     Parameters
     ----------
-    x_a, y_a, z_a : float
+    x_a, y_a, z_a : float or ndarray
         Coordinates of electron A.
-    x_b, y_b, z_b : float
+    x_b, y_b, z_b : float or ndarray
         Coordinates of electron B.
     theta1, theta2, theta3 : float
         Variational parameters (see project equation 18).
     q1, q2 : array_like
-        Positions of the two protons.
-    """
-    r1 = np.array([x_a, y_a, z_a])
-    r2 = np.array([x_b, y_b, z_b])
+        Positions of the two protons, shape (3,).
 
-    # Distances to nuclei (small epsilon avoids division-by-zero later)
-    r1_q1 = np.linalg.norm(r1 - q1)
-    r1_q2 = np.linalg.norm(r1 - q2)
-    r2_q1 = np.linalg.norm(r2 - q1)
-    r2_q2 = np.linalg.norm(r2 - q2)
+    Returns
+    -------
+    psi : float or ndarray
+        Wavefunction value(s). If inputs are arrays, output has shape (n_walkers,).
+    """
+    # Stack coordinates into (..., 3) arrays
+    r1 = np.stack((x_a, y_a, z_a), axis=-1)  # shape (..., 3)
+    r2 = np.stack((x_b, y_b, z_b), axis=-1)  # shape (..., 3)
+
+    q1 = np.asarray(q1)
+    q2 = np.asarray(q2)
+
+    # Distances to nuclei (axis=-1 works for scalars or arrays)
+    r1_q1 = np.linalg.norm(r1 - q1, axis=-1)
+    r1_q2 = np.linalg.norm(r1 - q2, axis=-1)
+    r2_q1 = np.linalg.norm(r2 - q1, axis=-1)
+    r2_q2 = np.linalg.norm(r2 - q2, axis=-1)
 
     # Electron–electron distance
-    r12 = np.linalg.norm(r1 - r2)
+    r12 = np.linalg.norm(r1 - r2, axis=-1)
 
     # Slater-like part (the bracket in eq. 18)
     slater = (
@@ -53,9 +66,11 @@ def psi_h2(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2):
     return slater * jastrow
 
 
-
 def pdf_xyz(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2):
-    """Probability density |ω|² for the H₂ trial wavefunction."""
+    """Probability density |ω|² for the H₂ trial wavefunction.
+
+    Works with scalar inputs or 1D arrays (vectorised over walkers).
+    """
     psi = psi_h2(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2)
     return psi**2
 
@@ -65,52 +80,94 @@ def _propose_step(current, step_vec):
     return current + step_vec
 
 
+def metropolis_2protons_multi(step_size, pdf, iterations, n_walkers,
+                              theta1, theta2, theta3, q_1, q_2, seed=SEED):
+    """
+    Run n_walkers independent 3D Metropolis–Hastings chains for two electrons
+    in parallel, using a vectorised pdf.
 
-def metropolis_2protons(step_size, pdf, iterations, theta1, theta2, theta3, q_1, q_2, seed=SEED):
-    """Run a 3D Metropolis–Hastings chain for two electrons.
+    Parameters
+    ----------
+    step_size : float
+    pdf       : callable
+        Vectorised pdf:
+        pdf(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q_1, q_2)
+        where x_a, ... can be arrays of shape (n_walkers,).
+    iterations : int
+        Number of Metropolis steps per walker.
+    n_walkers : int
+        Number of independent chains to run in parallel.
+    theta1, theta2, theta3 : float
+        Variational parameters.
+    q_1, q_2 : array_like
+        Proton positions.
+    seed : int
+        Seed for the LCG RNG.
 
     Returns
     -------
     samples : ndarray
-        Array with shape (iterations, 6) storing [x_a, y_a, z_a, x_b, y_b, z_b].
+        Shape (iterations * n_walkers, 6), where the last axis is
+        [x_a, y_a, z_a, x_b, y_b, z_b].
     """
-    # 6 uniforms for initial point + (6 for proposal + 1 for accept) per step
-    n_uniform = 6 + 7 * (iterations - 1)
+    # 6 * n_walkers for the initial point + (6 * n_walkers for proposal
+    # + n_walkers for accept) per step
+    n_uniform = n_walkers * (6 + 7 * (iterations - 1))
     u = lcg_random(seed, n_uniform)
     idx = 0
 
-    samples = np.zeros((iterations, 6))
+    samples = np.zeros((iterations, n_walkers, 6))
 
-    # Initial point in [-1, 1]^3 for both electrons
-    samples[0, :3] = (u[idx:idx + 3] - 0.5) * 2.0
-    samples[0, 3:] = (u[idx + 3:idx + 6] - 0.5) * 2.0
-    idx += 6
+    # Initial point in [-1, 1]^3 for both electrons per walker
+    init = (u[idx:idx + 6 * n_walkers].reshape(n_walkers, 6) - 0.5) * 2.0
+    samples[0, :, :] = init
+    idx += 6 * n_walkers
 
     for i in range(1, iterations):
-        current = samples[i - 1]
-        proposal_steps = step_size * (2 * u[idx:idx + 6] - 1)  # each in [-step_size, step_size]
-        idx += 6
+        current = samples[i - 1]          # shape (n_walkers, 6)
+
+        # Proposal steps shaped (n_walkers, 6) with each coordinate
+        # uniformly in [-step_size, step_size]
+        proposal_steps = step_size * (2 * u[idx:idx + 6 * n_walkers].reshape(n_walkers, 6) - 1)
+        idx += 6 * n_walkers
 
         proposal = _propose_step(current, proposal_steps)
 
-        # Acceptance uniform
-        u_accept = u[idx]
-        idx += 1
+        # Acceptance uniforms for all walkers at this step
+        u_accept = u[idx:idx + n_walkers]
+        idx += n_walkers
 
-        p_current = pdf(*current, theta1, theta2, theta3, q_1, q_2)
-        p_prop = pdf(*proposal, theta1, theta2, theta3, q_1, q_2)
+        # Split coordinates for vectorised pdf evaluation
+        x_a_c, y_a_c, z_a_c = current[:, 0], current[:, 1], current[:, 2]
+        x_b_c, y_b_c, z_b_c = current[:, 3], current[:, 4], current[:, 5]
 
-        if p_current <= 0:
-            alpha = 1.0    # if current state is impossible, move
-        else:
-            alpha = min(1.0, p_prop / p_current)
+        x_a_p, y_a_p, z_a_p = proposal[:, 0], proposal[:, 1], proposal[:, 2]
+        x_b_p, y_b_p, z_b_p = proposal[:, 3], proposal[:, 4], proposal[:, 5]
 
-        samples[i, :] = proposal if u_accept < alpha else current
+        # Vectorised pdf for all walkers at once
+        p_current = pdf(x_a_c, y_a_c, z_a_c,
+                        x_b_c, y_b_c, z_b_c,
+                        theta1, theta2, theta3, q_1, q_2)
 
-    return samples
+        p_prop = pdf(x_a_p, y_a_p, z_a_p,
+                     x_b_p, y_b_p, z_b_p,
+                     theta1, theta2, theta3, q_1, q_2)
+
+        # Compute acceptance probabilities
+        alpha = np.ones(n_walkers)
+        valid = p_current > 0
+        alpha[valid] = np.minimum(1.0, p_prop[valid] / p_current[valid])
+
+        accept = u_accept < alpha
+
+        # Broadcast accept mask over the last axis to update accepted walkers only
+        samples[i, :, :] = np.where(accept[:, None], proposal, current)
+
+    # OPTION A: flatten all walkers into one big sample set
+    return samples.reshape(iterations * n_walkers, 6)
 
 
-def _distances(r1, r2, q1, q2, eps=1e-12):
+def _distances(r1, r2, q1, q2):
     """Compute distances needed for the Hamiltonian terms."""
     r1_q1 = np.linalg.norm(r1 - q1)
     r1_q2 = np.linalg.norm(r1 - q2)
@@ -120,11 +177,11 @@ def _distances(r1, r2, q1, q2, eps=1e-12):
 
     # Add tiny epsilons to avoid division-by-zero spikes in the potential
     return (
-        r1_q1 + eps,
-        r1_q2 + eps,
-        r2_q1 + eps,
-        r2_q2 + eps,
-        r12 + eps,
+        r1_q1,
+        r1_q2,
+        r2_q1,
+        r2_q2,
+        r12,
     )
 
 
@@ -157,7 +214,7 @@ def energy(samples, theta1, theta2, theta3, q):
     """Estimate the energy expectation value for the given samples."""
     n_samples = samples.shape[0]
     E = 0.0
-    q12 = np.linalg.norm(q[0] - q[1]) + 1e-12
+    q12 = np.linalg.norm(q[0] - q[1])
 
     # Small step for the finite-difference Laplacian
     h = 1e-4
@@ -188,7 +245,7 @@ def monte_carlo_minimisation_2protons(step_size, pdf, iterations, T,
     theta2 = theta
     theta3 = theta
 
-    samples = metropolis_2protons(step_size, pdf, 3000,
+    samples = metropolis_2protons_multi(step_size, pdf, 10, 100,
                                   theta1, theta2, theta3, q_1, q_2, seed)
 
     E = energy(samples, theta1, theta2, theta3, q)
@@ -196,23 +253,25 @@ def monte_carlo_minimisation_2protons(step_size, pdf, iterations, T,
     # Use different random numbers just for parameter proposals
     u = lcg_random(seed + 1, 3 * iterations)
     n = 0
+    a = 0
 
     for i in range(iterations):
+
         du1, du2, du3 = 2 * u[3 * i:3 * i + 3] - 1
 
         theta1_dash = theta1 + step_size * du1
         theta2_dash = theta2 + step_size * du2
         theta3_dash = theta3 + step_size * du3
 
-        # After proposing theta1_dash, theta2_dash, theta3_dash
         if not (0.0 < theta1_dash < 5.0 and
-                0.0 < theta2_dash < 5.0 and
-                0.0 <= theta3_dash < 5.0):
-            # Reject this move: just continue to next iteration
+            0.0 < theta2_dash < 5.0 and
+            0.0 <= theta3_dash < 5.0):
             continue
 
-        # REUSE the same samples here
-        E_dash = energy(samples, theta1_dash, theta2_dash, theta3_dash, q)
+
+        samples_dash = metropolis_2protons_multi(step_size, pdf, 10, 100,
+                                  theta1_dash, theta2_dash, theta3_dash, q_1, q_2, seed)
+        E_dash = energy(samples_dash, theta1_dash, theta2_dash, theta3_dash, q)
 
         delta_E = E_dash - E
 
@@ -225,22 +284,90 @@ def monte_carlo_minimisation_2protons(step_size, pdf, iterations, T,
         else:
             theta1, theta2, theta3 = theta1_dash, theta2_dash, theta3_dash
             E = E_dash
-
+    
+        a += 1
+        print(f"Theta values {a}:", theta1, theta2, theta3)
+        print(f"T values {a}:", T)
         n += 1
-        if n == 10:
+        
+        if n == 5:
             T *= 0.8
             n = 0
 
     return theta1, theta2, theta3
 
 
-theta1, theta2, theta3 = monte_carlo_minimisation_2protons(0.5, pdf_xyz, 100, 1.0, THETA_INITIAL, SEED)
+theta1, theta2, theta3 = monte_carlo_minimisation_2protons(0.5, pdf_xyz, 100, 0.5, THETA_INITIAL, SEED)
 print("Optimized theta values for H2 molecule:", theta1, theta2, theta3)
 
-energy_estimate = energy(metropolis_2protons(0.5, pdf_xyz, 10000,
+energy_estimate = energy(metropolis_2protons_multi(0.5, pdf_xyz, 10, 100,
                                   theta1, theta2, theta3, q_1, q_2, SEED), theta1, theta2, theta3, q)
 print("Estimated Energy Expectation Value for H2 molecule:", energy_estimate)
 
+
+def plot_h2_pdf_histogram(theta1, theta2, theta3,
+                          q_1, q_2,
+                          n_samples=20, n_walkers=1000,
+                          step_size=0.5,
+                          bins=120):
+    """
+    Plot a 2D histogram of electron positions (x vs z) for the H2 molecule.
+    Samples are drawn from the Metropolis distribution |psi|^2.
+
+    Parameters
+    ----------
+    theta1, theta2, theta3 : float
+        Optimised variational parameters.
+    q_1, q_2 : array_like
+        Proton positions.
+    n_samples : int
+        Number of Metropolis samples.
+    step_size : float
+        Proposal step size for Metropolis.
+    bins : int
+        Number of bins for the 2D histogram.
+    """
+
+    # ---- 1. Generate samples from |psi|² ------------------------
+    samples = metropolis_2protons_multi(step_size, pdf_xyz,
+                                  n_samples, n_walkers,
+                                  theta1, theta2, theta3,
+                                  q_1, q_2, SEED)
+
+    # samples[:, :3] → electron A
+    # samples[:, 3:] → electron B
+    r1 = samples[:, :3]
+    r2 = samples[:, 3:]
+
+    # ---- 2. Convert to x,z coordinates (ignore y) ---------------
+    x_vals = np.concatenate([r1[:, 0], r2[:, 0]])   # electron A + B
+    z_vals = np.concatenate([r1[:, 2], r2[:, 2]])
+
+    # ---- 3. Build 2D histogram ---------------------------------
+    plt.figure(figsize=(6, 5))
+
+    plt.hist2d(x_vals, z_vals, bins=bins, density=True,
+               cmap="inferno")
+
+    plt.xlabel("x (a.u.)")
+    plt.ylabel("z (a.u.)")
+    plt.title("2D Histogram of Electron Probability Density for H₂")
+
+    plt.xlim(-5, 5)
+    plt.ylim(-5, 5)
+
+    # Colour bar
+    plt.colorbar(label="Probability Density")
+
+    # Mark proton positions in the x–z plane
+    plt.scatter([q_1[0], q_2[0]],
+                [q_1[2], q_2[2]],
+                c="cyan", s=80, marker="x", label="Protons")
+
+    plt.legend(loc="upper right")
+    plt.tight_layout()
+    plt.show()
+plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2)
 
 #-------------------------------------------
 end = time.time()
