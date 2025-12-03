@@ -80,83 +80,48 @@ def _propose_step(current, step_vec):
     return current + step_vec
 
 
-def metropolis_2protons_multi(step_size, pdf, iterations, n_walkers,
-                              theta1, theta2, theta3, q_1, q_2, seed=SEED):
-    """
-    Run n_walkers independent 3D Metropolis–Hastings chains for two electrons
-    in parallel, using a vectorised pdf.
+def metropolis_2protons_multi(step_size, pdf, n_walkers,
+                              theta1, theta2, theta3, q_1, q_2,
+                              iterations=80, seed=SEED):
 
-    Parameters
-    ----------
-    step_size : float
-    pdf       : callable
-        Vectorised pdf:
-        pdf(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q_1, q_2)
-        where x_a, ... can be arrays of shape (n_walkers,).
-    iterations : int
-        Number of Metropolis steps per walker.
-    n_walkers : int
-        Number of independent chains to run in parallel.
-    theta1, theta2, theta3 : float
-        Variational parameters.
-    q_1, q_2 : array_like
-        Proton positions.
-    seed : int
-        Seed for the LCG RNG.
-
-    Returns
-    -------
-    samples : ndarray
-        Shape (iterations * n_walkers, 6), where the last axis is
-        [x_a, y_a, z_a, x_b, y_b, z_b].
-    """
-    # 6 * n_walkers for the initial point + (6 * n_walkers for proposal
-    # + n_walkers for accept) per step
     n_uniform = n_walkers * (6 + 7 * (iterations - 1))
     u = lcg_random(seed, n_uniform)
     idx = 0
 
     samples = np.zeros((iterations, n_walkers, 6))
 
-# --- New initialisation: start electrons near each proton ----
-    offset_scale = 0.5    # how far from each proton to initialise (tunable)
+    # --- Acceptance counters ---
+    total_moves = (iterations - 1) * n_walkers
+    accepted_moves = 0
 
-    # Use 6 * n_walkers uniforms for initial offsets
+    # Initial positions
+    offset_scale = 0.5
     u_init = u[idx:idx + 6 * n_walkers].reshape(n_walkers, 6)
     idx += 6 * n_walkers
-
-    # Convert uniforms in [0,1] to offsets in [-offset_scale, +offset_scale]
     offsets = offset_scale * (2.0 * u_init - 1.0)
 
-    # Electron A initial positions near proton q_1
     samples[0, :, 0:3] = q_1 + offsets[:, 0:3]
-
-    # Electron B initial positions near proton q_2
     samples[0, :, 3:6] = q_2 + offsets[:, 3:6]
 
-
     for i in range(1, iterations):
-        current = samples[i - 1]          # shape (n_walkers, 6)
+        current = samples[i - 1]
 
-        # Proposal steps shaped (n_walkers, 6) with each coordinate
-        # uniformly in [-step_size, step_size]
-        proposal_steps = step_size * (2 * u[idx:idx + 6 * n_walkers].reshape(n_walkers, 6) - 1)
+        proposal_steps = step_size * (
+            2 * u[idx:idx + 6 * n_walkers].reshape(n_walkers, 6) - 1
+        )
         idx += 6 * n_walkers
 
-        proposal = _propose_step(current, proposal_steps)
+        proposal = current + proposal_steps
 
-        # Acceptance uniforms for all walkers at this step
         u_accept = u[idx:idx + n_walkers]
         idx += n_walkers
 
-        # Split coordinates for vectorised pdf evaluation
         x_a_c, y_a_c, z_a_c = current[:, 0], current[:, 1], current[:, 2]
         x_b_c, y_b_c, z_b_c = current[:, 3], current[:, 4], current[:, 5]
 
         x_a_p, y_a_p, z_a_p = proposal[:, 0], proposal[:, 1], proposal[:, 2]
         x_b_p, y_b_p, z_b_p = proposal[:, 3], proposal[:, 4], proposal[:, 5]
 
-        # Vectorised pdf for all walkers at once
         p_current = pdf(x_a_c, y_a_c, z_a_c,
                         x_b_c, y_b_c, z_b_c,
                         theta1, theta2, theta3, q_1, q_2)
@@ -165,18 +130,26 @@ def metropolis_2protons_multi(step_size, pdf, iterations, n_walkers,
                      x_b_p, y_b_p, z_b_p,
                      theta1, theta2, theta3, q_1, q_2)
 
-        # Compute acceptance probabilities
         alpha = np.ones(n_walkers)
         valid = p_current > 0
         alpha[valid] = np.minimum(1.0, p_prop[valid] / p_current[valid])
 
         accept = u_accept < alpha
 
-        # Broadcast accept mask over the last axis to update accepted walkers only
-        samples[i, :, :] = np.where(accept[:, None], proposal, current)
+        # ---- Count acceptances ----
+        accepted_moves += np.sum(accept)
 
-    # OPTION A: flatten all walkers into one big sample set
-    return samples.reshape(iterations * n_walkers, 6)
+        samples[i] = np.where(accept[:, None], proposal, current)
+
+    burn_in = max(1, int(0.2 * iterations))
+    samples_post = samples[burn_in:, :, :]
+
+    acceptance_rate = accepted_moves / total_moves
+
+    print(f"Acceptance rate: {100*acceptance_rate:.2f}% "
+          f"({accepted_moves}/{total_moves})")
+
+    return samples_post.reshape(-1, 6)
 
 
 def energy(samples, theta1, theta2, theta3, q):
@@ -240,16 +213,14 @@ def energy(samples, theta1, theta2, theta3, q):
     return np.mean(local_E)
 
 
-def monte_carlo_minimisation_2protons(step_size, pdf, iterations, T,
-                                      theta=THETA_INITIAL, seed=SEED):
+def monte_carlo_minimisation_2protons(step_size_r, step_size_theta, pdf, iterations, T, theta=THETA_INITIAL, seed=SEED):
     # Draw ONE chain at the start, using the initial theta
     """Simple simulated annealing on θ₁, θ₂, θ₃ using a reused chain."""
     theta1 = theta
     theta2 = theta
     theta3 = theta
 
-    samples = metropolis_2protons_multi(step_size, pdf, 1000, 50,
-                                  theta1, theta2, theta3, q_1, q_2, seed)
+    samples = metropolis_2protons_multi(step_size_r, pdf, 500, theta1, theta2, theta3, q_1, q_2, seed)
 
     E = energy(samples, theta1, theta2, theta3, q)
 
@@ -262,9 +233,9 @@ def monte_carlo_minimisation_2protons(step_size, pdf, iterations, T,
 
         du1, du2, du3 = 2 * u[3 * i:3 * i + 3] - 1
 
-        theta1_dash = theta1 + step_size * du1
-        theta2_dash = theta2 + step_size * du2
-        theta3_dash = theta3 + step_size * du3
+        theta1_dash = theta1 + step_size_theta * du1
+        theta2_dash = theta2 + step_size_theta * du2
+        theta3_dash = theta3 + step_size_theta * du3
 
         if not (0.0 < theta1_dash < 5.0 and
             0.0 < theta2_dash < 5.0 and
@@ -272,7 +243,7 @@ def monte_carlo_minimisation_2protons(step_size, pdf, iterations, T,
             continue
 
 
-        samples_dash = metropolis_2protons_multi(step_size, pdf, 1000, 50,
+        samples_dash = metropolis_2protons_multi(step_size_r, pdf, 500,
                                   theta1_dash, theta2_dash, theta3_dash, q_1, q_2, seed)
         E_dash = energy(samples_dash, theta1_dash, theta2_dash, theta3_dash, q)
 
@@ -300,11 +271,7 @@ def monte_carlo_minimisation_2protons(step_size, pdf, iterations, T,
     return theta1, theta2, theta3
 
 
-def plot_h2_pdf_histogram(theta1, theta2, theta3, 
-                          q_1, q_2,
-                          n_samples=1000, n_walkers=10,
-                          step_size=0.5,
-                          bins=120):
+def plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2, n_walkers=1000, step_size=0.5, bins=120):
     """
     Plot a 2D histogram of electron positions (x vs z) for the H2 molecule.
     Samples are drawn from the Metropolis distribution |psi|^2.
@@ -325,7 +292,7 @@ def plot_h2_pdf_histogram(theta1, theta2, theta3,
 
     # ---- 1. Generate samples from |psi|² ------------------------
     samples = metropolis_2protons_multi(step_size, pdf_xyz,
-                                  n_samples, n_walkers,
+                                 n_walkers,
                                   theta1, theta2, theta3,
                                   q_1, q_2, SEED)
 
@@ -348,8 +315,8 @@ def plot_h2_pdf_histogram(theta1, theta2, theta3,
     plt.ylabel("z (a.u.)")
     plt.title("2D Histogram of Electron Probability Density for H₂")
 
-    #plt.xlim(-5, 5)
-    #plt.ylim(-5, 5)
+    plt.xlim(-3, 3)
+    plt.ylim(-3, 3)
 
     # Colour bar
     plt.colorbar(label="Probability Density")
@@ -375,8 +342,7 @@ def bond_length(step_size, pdf, iterations, T, r_min, r_max, THETA_INITIAL, SEED
         q_2 = np.array([- i, 0.0, 0.0])  # position of proton 2
         q = np.array([q_1, q_2])
         theta1, theta2, theta3 = monte_carlo_minimisation_2protons(step_size, pdf, iterations, T, THETA_INITIAL, SEED)
-        energy_estimate = energy(metropolis_2protons_multi(step_size, pdf, 1000, 10,
-                                  theta1, theta2, theta3, q_1, q_2, SEED), theta1, theta2, theta3, q)
+        energy_estimate = energy(metropolis_2protons_multi(step_size, pdf, 10000, theta1, theta2, theta3, q_1, q_2, SEED), theta1, theta2, theta3, q)
         
         energy_estimates.append(energy_estimate)
         bond_lengths.append(i)
@@ -390,15 +356,28 @@ def bond_length(step_size, pdf, iterations, T, r_min, r_max, THETA_INITIAL, SEED
     plt.show()
 
 
-theta1, theta2, theta3 = monte_carlo_minimisation_2protons(0.5, pdf_xyz, 100, 0.5, THETA_INITIAL, SEED)
+theta1, theta2, theta3 = monte_carlo_minimisation_2protons(0.8, 0.4, pdf_xyz, 200, 1, THETA_INITIAL, SEED)
 print("Optimized theta values for H2 molecule:", theta1, theta2, theta3)
 
-energy_estimate = energy(metropolis_2protons_multi(0.5, pdf_xyz, 1000, 100,
-                                  theta1, theta2, theta3, q_1, q_2, SEED), theta1, theta2, theta3, q)
-print("Estimated Energy Expectation Value for H2 molecule:", energy_estimate)
+energy_estimate = energy(metropolis_2protons_multi(0.8, pdf_xyz, 10000, theta1, theta2, theta3, q_1, q_2, SEED), theta1, theta2, theta3, q)
+print("Estimated Energy Expectation Value for H2 molecule (10000 walkers, seed = 42):", energy_estimate)
 
-plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2)
-#bond_length(0.5, pdf_xyz, 100, 0.5, 3, 13, THETA_INITIAL, SEED)
+energy_estimate = energy(metropolis_2protons_multi(0.8, pdf_xyz, 10000, theta1, theta2, theta3, q_1, q_2, 7), theta1, theta2, theta3, q)
+print("Estimated Energy Expectation Value for H2 molecule (10000 walkers, seed = 7):", energy_estimate)
+
+energy_estimate = energy(metropolis_2protons_multi(0.8, pdf_xyz, 1000, theta1, theta2, theta3, q_1, q_2, SEED), theta1, theta2, theta3, q)
+print("Estimated Energy Expectation Value for H2 molecule (1000 walkers, seed = 42):", energy_estimate)
+
+energy_estimate = energy(metropolis_2protons_multi(0.8, pdf_xyz, 1000, theta1, theta2, theta3, q_1, q_2, 7), theta1, theta2, theta3, q)
+print("Estimated Energy Expectation Value for H2 molecule (1000 walkers, seed = 7):", energy_estimate)
+
+energy_estimate = energy(metropolis_2protons_multi(0.8, pdf_xyz, 100, theta1, theta2, theta3, q_1, q_2, SEED), theta1, theta2, theta3, q)
+print("Estimated Energy Expectation Value for H2 molecule (100 walkers, seed = 42):", energy_estimate)
+
+#plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2)
+
+#bond_length(0.5, pdf_xyz, 80, 0.5, 5, 10, THETA_INITIAL, SEED)
+
 #-------------------------------------------
 end = time.time()
 print(f"Run time: {end - start:.5f} seconds")

@@ -6,6 +6,7 @@ vectorising the expensive Monte Carlo and energy-evaluation steps.
 
 import matplotlib.pyplot as plt
 import numpy as np
+from task_3_1 import lcg_random
 
 
 SEED = 42
@@ -310,7 +311,7 @@ def bond_length(step_size, pdf, iterations, T, r_min, r_max, THETA_INITIAL, SEED
         theta1, theta2, theta3 = monte_carlo_minimisation_2protons(step_size, pdf, iterations, T, THETA_INITIAL, SEED)
         energy_estimate = energy(metropolis_2protons_multi(step_size, pdf, 50, 2000,
                                                           theta1, theta2, theta3, q_1, q_2, SEED,
-                                                          burn_in=110),
+                                                          burn_in=10),
                                  theta1, theta2, theta3, q)
 
         energy_estimates.append(energy_estimate)
@@ -324,18 +325,20 @@ def bond_length(step_size, pdf, iterations, T, r_min, r_max, THETA_INITIAL, SEED
     plt.grid(True)
     plt.show()
 
+#bond_length(0.5, pdf_xyz, 100, 1e-18, 5, 10, THETA_INITIAL, SEED)
+
 
 if __name__ == "__main__":
     theta1, theta2, theta3 = monte_carlo_minimisation_2protons(
-        0.5, pdf_xyz, iterations=100, T=0.5, theta=THETA_INITIAL, seed=SEED,
-        chain_iterations=50, n_walkers=100, burn_in=10
+        0.5, pdf_xyz, iterations=200, T=0.5, theta=THETA_INITIAL, seed=SEED,
+        chain_iterations=80, n_walkers=1000, burn_in=20
     )
     print("Optimized theta values for H2 molecule:", theta1, theta2, theta3)
 
     energy_estimate = energy(
-        metropolis_2protons_multi(0.5, pdf_xyz, 50, 2000,
+        metropolis_2protons_multi(0.5, pdf_xyz, 80, 1000,
                                   theta1, theta2, theta3, q_1, q_2, SEED,
-                                  burn_in=10),
+                                  burn_in=20),
         theta1, theta2, theta3, q
     )
     print("Estimated Energy Expectation Value for H2 molecule:", energy_estimate)
