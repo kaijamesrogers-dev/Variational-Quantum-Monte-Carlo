@@ -14,32 +14,13 @@ def pdf0(r):
 
 #plt.plot(r, pdf0(r), label='PDF')
 #plt.show()
-#----------------------------------------------------------------------------
-#generate random numbers
-SEED = 7
 
-def lcg_random(SEED, n): #generate n random numbers using LCG
-    random_numbers = []
-    x = SEED
-    for _ in range(n):
-        x = (16807 * x) % 2_147_483_647
-        random_numbers.append(x / 2_147_483_647)
-    return np.array(random_numbers)
-
-random_numbers = lcg_random(SEED, 100000)
-#plot histogram of random numbers
-#plt.hist(random_numbers, bins=20, density=True)
-#plt.title('Histogram of LCG Random Numbers')
-#plt.xlabel('Value')
-#plt.ylabel('Density')
-#plt.show()
-#------------------------------------------------------------------------------------
 # Metropolis-Hastings algorithm
 def metropolis_hastings(step_size, pdf, iterations):
 
     # Pre-generate all uniforms we'll need
     # 2 per step (one for proposal, one for accept), plus one for initial x
-    u = lcg_random(SEED, iterations * 2 + 1)
+    u = np.random.rand(iterations * 2 + 1)
 
     x = np.zeros(iterations)
     # start near 0 instead of at extreme
@@ -80,8 +61,7 @@ def metropolis_hastings_multi(step_size, pdf, iterations, n_walkers):
     # Total uniforms:
     # 1 per walker for initial point
     # 2 per step per walker (proposal + accept)
-    n_uniform = n_walkers * (1 + 2 * (iterations - 1))
-    u = lcg_random(SEED, n_uniform)
+    u = np.random.rand(n_walkers * (1 + 2 * (iterations - 1)))
     idx = 0
 
     # (iterations, n_walkers)
@@ -90,6 +70,8 @@ def metropolis_hastings_multi(step_size, pdf, iterations, n_walkers):
     # Initial positions in [-1, 1]
     x[0] = (u[idx:idx + n_walkers] - 0.5) * 2.0
     idx += n_walkers
+
+    accepted_count = 0
 
     for i in range(1, iterations):
         x_current = x[i - 1]
@@ -112,16 +94,18 @@ def metropolis_hastings_multi(step_size, pdf, iterations, n_walkers):
 
         accept = u_accept < alpha
 
+        accepted_count += accept.sum()
         x[i] = np.where(accept, x_proposed, x_current)
 
     # Flatten all walkers into one long array
-    return x.reshape(iterations * n_walkers)
+    return x.reshape(iterations * n_walkers), accepted_count / (iterations * n_walkers)
 
-#samples_multi = metropolis_hastings_multi(0.5, pdf0, 10, 100000)
+samples_multi, fraction = metropolis_hastings_multi(2, pdf0, 50, 100000)
+
+print("percentage of accepted steps:", fraction * 100)
 
 #plot histogram of samples
-#plt.hist(samples_multi, bins=50, density=True, alpha=0.6, label='Samples Histogram')
-plt.hist(samples, bins=50, density=True, alpha=0.6, label='Samples Histogram')
+plt.hist(samples_multi, bins=50, density=True, alpha=0.6, label='Samples Histogram')
 #plot pdf  
 r = np.arange(-5, 5, 0.1)
 plt.plot(r, pdf0(r), label='PDF', color='red')

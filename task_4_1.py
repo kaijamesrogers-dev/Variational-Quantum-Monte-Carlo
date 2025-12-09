@@ -152,7 +152,7 @@ def energy(samples, theta1, theta2, theta3, q):
     r2 = coords[:, 1]
 
     q12 = np.linalg.norm(q[0] - q[1])
-    h = 1e-4
+    h = 10**(-3.5)
     eps = 1e-12  # avoids division spikes if a walker hits a nucleus
 
     # Base wavefunction values for all samples
@@ -414,16 +414,16 @@ def bond_length(step_size_r, pdf, iterations, T, r_min, r_max, THETA_INITIAL, E_
     return D_fit, a_fit, r0_fit
 
 
-#theta1, theta2, theta3 = monte_carlo_minimisation_2protons(0.8, 0.4, pdf_xyz, 200, 1, q_1, q_2, q, THETA_INITIAL)
-#print("Optimized theta values for H2 molecule:", theta1, theta2, theta3)
+theta1, theta2, theta3 = monte_carlo_minimisation_2protons(0.8, 0.4, pdf_xyz, 200, 1, q_1, q_2, q, THETA_INITIAL)
+print("Optimized theta values for H2 molecule:", theta1, theta2, theta3)
 
-#energy_estimate = energy(metropolis_2protons_multi(0.8, pdf_xyz, 10000, theta1, theta2, theta3, q_1, q_2), theta1, theta2, theta3, q)
-#print("Estimated Energy Expectation Value for H2 molecule (10000 walkers):", energy_estimate)
+energy_estimate = energy(metropolis_2protons_multi(0.8, pdf_xyz, 10000, theta1, theta2, theta3, q_1, q_2), theta1, theta2, theta3, q)
+print("Estimated Energy Expectation Value for H2 molecule (10000 walkers):", energy_estimate)
 
-#plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2)
+plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2)
 
-D_fit, a_fit, r0_fit = bond_length(step_size_r=0.5, pdf=pdf_xyz, iterations=80, T=0.5, r_min=0.2, r_max=3.0, THETA_INITIAL=THETA_INITIAL, E_single=E_single)
-print(D_fit, a_fit, r0_fit)
+#D_fit, a_fit, r0_fit = bond_length(step_size_r=0.5, pdf=pdf_xyz, iterations=80, T=0.5, r_min=0.2, r_max=3.0, THETA_INITIAL=THETA_INITIAL, E_single=E_single)
+#print(D_fit, a_fit, r0_fit)
 
 #-------------------------------------------
 end = time.time()
