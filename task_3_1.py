@@ -1,19 +1,11 @@
+import time
+start = time.time()
+
 import numpy as np
 import matplotlib.pyplot as plt
-from task_2_1 import w2_2nd_general
 
-SEED = 7
-
-def lcg_random(seed, n):
-    """Generate n pseudo-random numbers in (0,1) using an LCG."""
-    a = 16807
-    m = 2_147_483_647
-    x = seed
-    out = []
-    for _ in range(n):
-        x = (a * x) % m
-        out.append(x / m)
-    return np.array(out)
+def w2_2nd_general(f, x, h, *f_args):
+    return (f(x + h, *f_args) - 2*f(x, *f_args) + f(x - h, *f_args)) / h**2
 
 theta = 1.0
 
@@ -30,7 +22,7 @@ def pdf_xyz(x, y, z, theta):
     r = np.sqrt(x**2 + y**2 + z**2)
     return (theta**3 / np.pi) * np.exp(-2 * theta * r)
 
-def metropolis_hastings_3d(step_size, pdf, iterations, theta, seed=SEED):
+def metropolis_hastings_3d(step_size, pdf, iterations, theta):
     """
     3D Metropolis–Hastings sampler.
 
@@ -40,8 +32,9 @@ def metropolis_hastings_3d(step_size, pdf, iterations, theta, seed=SEED):
     """
     # 3 uniforms for initial point + (3 for proposal + 1 for accept) per step
     n_uniform = 3 + 4 * (iterations - 1)
-    u = lcg_random(seed, n_uniform)
+    u = np.random.rand(n_uniform)
     idx = 0
+    accepted_number = 0
 
     samples = np.zeros((iterations, 3))
 
@@ -75,10 +68,11 @@ def metropolis_hastings_3d(step_size, pdf, iterations, theta, seed=SEED):
 
         if u_accept < alpha:
             samples[i, :] = [x_prop, y_prop, z_prop]
+            accepted_number += 1
         else:
             samples[i, :] = [x_current, y_current, z_current]
 
-    return samples
+    return samples, accepted_number / iterations * 100
 
 #samples = metropolis_hastings_3d(0.5, pdf_xyz, 100000, theta, SEED)
 
@@ -86,7 +80,7 @@ def energy(samples, theta):
     r = np.linalg.norm(samples, axis=1)
     N = samples.shape[0]
     E = 0.0
-    h = 1e-4  # slightly bigger h is fine
+    h = 2e-4  # slightly bigger h is fine
 
     for i in range(N):
         xyz = samples[i]
@@ -107,14 +101,17 @@ def energy(samples, theta):
 
 #print("Estimated Energy Expectation Value:", energy(samples, theta))
 
-def monte_carlo_minimisation(step_size, pdf, iterations, T, theta = theta, seed=SEED):
-    u = lcg_random(seed, 2 * iterations)
+def monte_carlo_minimisation(step_size, pdf, iterations, T, theta = theta):
+    u = np.random.rand(2 * iterations)
     n = 0
-    samples = metropolis_hastings_3d(step_size, pdf, iterations * 30, theta, seed)
+    samples, percentage = metropolis_hastings_3d(1.1, pdf, iterations * 30, theta)
+    print(percentage)
     E = energy(samples, theta)
+    accepted_number_mc = 0
     for i in range(iterations):
         theta_dash = theta + step_size * (2 * u[i] - 1)
-        samples_dash = metropolis_hastings_3d(step_size, pdf, iterations * 30, theta_dash, seed)
+        samples_dash, percentage_dash = metropolis_hastings_3d(1.1, pdf, iterations * 30, theta_dash)
+        print(percentage_dash)
         E_dash = energy(samples_dash, theta_dash)
 
         delta_E = E_dash - E
@@ -125,19 +122,26 @@ def monte_carlo_minimisation(step_size, pdf, iterations, T, theta = theta, seed=
             if random < alpha:
                 theta = theta_dash
                 E = E_dash
+                accepted_number_mc += 1
         else:
             theta = theta_dash
             E = E_dash
+            accepted_number_mc += 1
 
         n += 1
         if n == 10:
             T = T * 0.8
             n = 0
 
-    return theta
+    return theta, accepted_number_mc / iterations * 100
 
-#opt_theta = monte_carlo_minimisation(0.5, pdf_xyz, 100, 1e-20, theta, SEED)
-#print("Optimized Theta:", opt_theta)
+opt_theta, percentage_mc = monte_carlo_minimisation(0.7, pdf_xyz, 100, 0.1, theta)
+print("Optimized Theta:", opt_theta)
+print("Percentage Monte Carlo:", percentage_mc)
 
-#samples_optimized = metropolis_hastings_3d(0.5, pdf_xyz, 10000, opt_theta, SEED)
-#print("Estimated Energy Expectation Value with Optimized Theta:", energy(samples_optimized, opt_theta))
+samples_optimized, percentage = metropolis_hastings_3d(1.1, pdf_xyz, 10000, opt_theta)
+print("Estimated Energy Expectation Value with Optimized Theta:", energy(samples_optimized, opt_theta))
+print(percentage)
+
+end = time.time()
+print(f"Run time: {end - start:.5f} seconds")

@@ -261,7 +261,7 @@ def monte_carlo_minimisation_2protons(step_size_r, step_size_theta, pdf, iterati
 
 
 
-def plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2, n_walkers=1000, step_size=0.5, bins=120):
+def plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2, n_walkers=1000, step_size=0.5, bins=240):
     """
     Plot a 2D histogram of electron positions (x vs z) for the H2 molecule.
     Samples are drawn from the Metropolis distribution |psi|^2.

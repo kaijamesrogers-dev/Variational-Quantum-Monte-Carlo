@@ -4,7 +4,28 @@ start = time.time()
 
 import numpy as np 
 import matplotlib.pyplot as plt
-from task_2_1 import w2_2nd_general
+
+plt.rcParams.update({
+    'font.size': 14,       # general font size
+    'axes.titlesize': 14,  # title size
+    'axes.labelsize': 14,  # x/y label size
+    'xtick.labelsize': 14,
+    'ytick.labelsize': 14,
+    'legend.fontsize': 14
+})
+
+import matplotlib.pyplot as plt
+
+plt.rcParams.update({
+    "font.family": "serif",
+    "mathtext.fontset": "cm",   # <-- use Computer Modern
+    "axes.unicode_minus": False
+})
+
+
+
+def w2_2nd_general(f, x, h, *f_args):
+    return (f(x + h, *f_args) - 2*f(x, *f_args) + f(x - h, *f_args)) / h**2
 
 #plot pdf
 r = np.arange(-5, 5, 0.1)
@@ -21,6 +42,7 @@ def metropolis_hastings(step_size, pdf, iterations):
     # Pre-generate all uniforms we'll need
     # 2 per step (one for proposal, one for accept), plus one for initial x
     u = np.random.rand(iterations * 2 + 1)
+    accepted_count = 0
 
     x = np.zeros(iterations)
     # start near 0 instead of at extreme
@@ -38,14 +60,16 @@ def metropolis_hastings(step_size, pdf, iterations):
         # Metropolis acceptance ratio
         alpha = min(1.0, pdf(x_proposed) / pdf(x_current))
 
-        if u_accept < alpha:
-            x[i] = x_proposed
-        else:
-            x[i] = x_current
+        accept = u_accept < alpha
 
-    return x
+        accepted_count += accept.sum()
+        x[i] = np.where(accept, x_proposed, x_current)
 
-samples = metropolis_hastings(0.5, pdf0, 1000000)
+    # Flatten all walkers into one long array
+    return x, accepted_count / iterations * 100
+
+N = 1000000
+samples, percentage = metropolis_hastings(2, pdf0, N)
 
 def metropolis_hastings_multi(step_size, pdf, iterations, n_walkers):
     """
@@ -100,20 +124,18 @@ def metropolis_hastings_multi(step_size, pdf, iterations, n_walkers):
     # Flatten all walkers into one long array
     return x.reshape(iterations * n_walkers), accepted_count / (iterations * n_walkers)
 
-samples_multi, fraction = metropolis_hastings_multi(2, pdf0, 50, 100000)
+#samples_multi, fraction = metropolis_hastings_multi(2, pdf0, 100, 100000)
 
-print("percentage of accepted steps:", fraction * 100)
+print("percentage of accepted steps:", percentage)
 
 #plot histogram of samples
-plt.hist(samples_multi, bins=50, density=True, alpha=0.6, label='Samples Histogram')
+plt.hist(samples, bins=30, density=True, alpha=0.6, label='Samples')
 #plot pdf  
 r = np.arange(-5, 5, 0.1)
 plt.plot(r, pdf0(r), label='PDF', color='red')
-plt.title('Metropolis-Hastings Sampling')
 plt.xlabel('Value')
 plt.ylabel('Density')
 plt.legend()
-plt.show()
 
 #----------------------------------------------------------------------------
 
@@ -123,22 +145,24 @@ def phi0(x):
     return np.exp(- x ** 2 / 2)
 
 energy = 0
-#for i in range(100000):
-#    energy += 1/100000 * (- 1 / 2 * w2_2nd_general(phi0, samples[i], 0.001) / phi0(samples[i]) + 1/2 * samples[i] ** 2)
+for i in range(N):
+    energy += 1/N * (- 1 / 2 * w2_2nd_general(phi0, samples[i], 0.0002) / phi0(samples[i]) + 1/2 * samples[i] ** 2)
 
-#print("Estimated Energy Expectation Value for n = 0:", energy)
+print("Estimated Energy Expectation Value for n = 0:", energy)
 
 def phi1(x):
     return 2 * x * np.exp(- x ** 2 / 2)
 
-#energy = 0
-#for i in range(100000):
-    energy += 1/100000 * (- 1 / 2 * w2_2nd_general(phi1, samples[i], 0.001) / phi1(samples[i]) + 1/2 * samples[i] ** 2)
+energy = 0
+for i in range(N):
+    energy += 1/N * (- 1 / 2 * w2_2nd_general(phi1, samples[i], 0.0002) / phi1(samples[i]) + 1/2 * samples[i] ** 2)
 
-#print("Estimated Energy Expectation Value for n = 1:", energy)
+print("Estimated Energy Expectation Value for n = 1:", energy)
 
 #-------------------------------------------
 end = time.time()
 print(f"Run time: {end - start:.5f} seconds")
+
+plt.show()
 
 
