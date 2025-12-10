@@ -156,8 +156,8 @@ def monte_carlo_minimisation(step_size, pdf, iterations, T, theta0):
 opt_theta, percentage_mc, theta_hist, E_hist = monte_carlo_minimisation(
     step_size=1,
     pdf=pdf_xyz,
-    iterations=200,
-    T=0.01,
+    iterations=100,
+    T=0.05,
     theta0=theta   # your initial scalar theta
 )
 

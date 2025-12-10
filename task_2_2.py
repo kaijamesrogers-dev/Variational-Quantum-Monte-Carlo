@@ -14,8 +14,6 @@ plt.rcParams.update({
     'legend.fontsize': 14
 })
 
-import matplotlib.pyplot as plt
-
 plt.rcParams.update({
     "font.family": "serif",
     "mathtext.fontset": "cm",   # <-- use Computer Modern
