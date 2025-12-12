@@ -6,10 +6,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
+plt.rcParams.update({
+    'font.size': 14,       # general font size
+    'axes.titlesize': 14,  # title size
+    'axes.labelsize': 14,  # x/y label size
+    'xtick.labelsize': 14,
+    'ytick.labelsize': 14,
+    'legend.fontsize': 14
+})
+
+plt.rcParams.update({
+    "font.family": "serif",
+    "mathtext.fontset": "cm",   # <-- use Computer Modern
+    "axes.unicode_minus": False
+})
 
 THETA_INITIAL = 0.5
-q_1 = np.array([0.7, 0.0, 0.0])  # position of proton 1
-q_2 = np.array([- 0.7, 0.0, 0.0])  # position of proton 2
+q_1 = np.array([0.6611475, 0.0, 0.0])  # position of proton 1
+q_2 = np.array([- 0.6611475, 0.0, 0.0])  # position of proton 2
 q = np.array([q_1, q_2])
 E_single = -0.5
 
@@ -75,7 +89,7 @@ def pdf_xyz(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2):
     return psi**2
 
 
-def metropolis_2protons_multi(step_size, pdf, n_walkers, theta1, theta2, theta3, q_1, q_2, iterations=80):
+def metropolis_2protons_multi(step_size, pdf, n_walkers, theta1, theta2, theta3, q_1, q_2, iterations=100):
 
     n_uniform = n_walkers * (6 + 7 * (iterations - 1))
     u = np.random.rand(n_uniform)
@@ -211,13 +225,14 @@ def monte_carlo_minimisation_2protons(step_size_r, step_size_theta, pdf, iterati
     theta2 = theta
     theta3 = theta
 
-    samples = metropolis_2protons_multi(step_size_r, pdf, 500,
+    samples = metropolis_2protons_multi(step_size_r, pdf, 1000,
                                         theta1, theta2, theta3, q_1, q_2)
     E = energy(samples, theta1, theta2, theta3, q)
 
     u = np.random.rand(3 * iterations)
     n = 0
     a = 0
+    accepted_theta_number = 0
 
     for i in range(iterations):
         du1, du2, du3 = 2 * u[3*i:3*i+3] - 1
@@ -244,9 +259,11 @@ def monte_carlo_minimisation_2protons(step_size_r, step_size_theta, pdf, iterati
             if rand < alpha:
                 theta1, theta2, theta3 = theta1_dash, theta2_dash, theta3_dash
                 E = E_dash
+                accepted_theta_number += 1
         else:
             theta1, theta2, theta3 = theta1_dash, theta2_dash, theta3_dash
             E = E_dash
+            accepted_theta_number += 1
 
         a += 1
         print(f"Theta values {a}:", theta1, theta2, theta3)
@@ -254,10 +271,10 @@ def monte_carlo_minimisation_2protons(step_size_r, step_size_theta, pdf, iterati
         n += 1
 
         if n == 5:
-            T *= 0.8
+            T *= 0.5
             n = 0
 
-    return theta1, theta2, theta3
+    return theta1, theta2, theta3, accepted_theta_number / iterations * 100
 
 
 
@@ -303,7 +320,6 @@ def plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2, n_walkers=500000, st
 
     plt.xlabel("x (a.u.)")
     plt.ylabel("z (a.u.)")
-    plt.title("2D Histogram of Electron Probability Density for H₂")
 
     plt.xlim(-3, 3)
     plt.ylim(-3, 3)
@@ -337,9 +353,9 @@ def bond_length(step_size_r, pdf, iterations, T, r_min, r_max, THETA_INITIAL, E_
         q   = np.array([q_1, q_2])
 
         # Optimise thetas for THIS separation
-        theta1, theta2, theta3 = monte_carlo_minimisation_2protons(
+        theta1, theta2, theta3, percentage_theta = monte_carlo_minimisation_2protons(
             step_size_r=step_size_r,
-            step_size_theta=0.2,      # tweak as you like
+            step_size_theta=0.3,      # tweak as you like
             pdf=pdf,
             iterations=iterations,
             T=T,
@@ -348,14 +364,14 @@ def bond_length(step_size_r, pdf, iterations, T, r_min, r_max, THETA_INITIAL, E_
             q=q,
             theta=THETA_INITIAL
         )
-
+        print(f"Percentage of theta accepted at separation {2*i}: {percentage_theta:.2f}%")
         # High-statistics energy estimate at this separation
         samples = metropolis_2protons_multi(
             step_size_r, pdf,
-            n_walkers=10000,
+            n_walkers=1000,
             theta1=theta1, theta2=theta2, theta3=theta3,
             q_1=q_1, q_2=q_2,
-            iterations=80
+            iterations=100
         )
         energy_estimate = energy(samples, theta1, theta2, theta3, q)
 
@@ -398,13 +414,13 @@ def bond_length(step_size_r, pdf, iterations, T, r_min, r_max, THETA_INITIAL, E_
     E_fit = morse_total(r_fit, D_fit, a_fit, r0_fit, E_single)
 
     # ---- Plot raw MC data + Morse fit ----
-    plt.figure(figsize=(6, 5))
+    plt.figure(figsize=(6, 5), clear = True)
+    plt.title("")
     plt.scatter(r_data, energies, color="black", label="MC energies")
     plt.plot(r_fit, E_fit, "r--", label="Morse fit")
 
     plt.xlabel("Bond length r (a.u.)")
     plt.ylabel("Energy (a.u.)")
-    plt.title("H₂ Energy vs Bond Length with Morse Fit")
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
@@ -414,15 +430,16 @@ def bond_length(step_size_r, pdf, iterations, T, r_min, r_max, THETA_INITIAL, E_
     return D_fit, a_fit, r0_fit
 
 
-theta1, theta2, theta3 = monte_carlo_minimisation_2protons(0.8, 0.4, pdf_xyz, 200, 1, q_1, q_2, q, THETA_INITIAL)
+theta1, theta2, theta3, percentage_theta = monte_carlo_minimisation_2protons(0.8, 0.4, pdf_xyz, 200, 1, q_1, q_2, q, THETA_INITIAL)
 print("Optimized theta values for H2 molecule:", theta1, theta2, theta3)
+print(f"Percentage of theta accepted: {percentage_theta:.2f}%")
 
-energy_estimate = energy(metropolis_2protons_multi(0.8, pdf_xyz, 10000, theta1, theta2, theta3, q_1, q_2), theta1, theta2, theta3, q)
-print("Estimated Energy Expectation Value for H2 molecule (10000 walkers):", energy_estimate)
+#energy_estimate = energy(metropolis_2protons_multi(0.8, pdf_xyz, 10000, theta1, theta2, theta3, q_1, q_2), theta1, theta2, theta3, q)
+#print("Estimated Energy Expectation Value for H2 molecule (10000 walkers):", energy_estimate)
 
 plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2)
 
-#D_fit, a_fit, r0_fit = bond_length(step_size_r=0.5, pdf=pdf_xyz, iterations=80, T=0.5, r_min=0.2, r_max=3.0, THETA_INITIAL=THETA_INITIAL, E_single=E_single)
+#D_fit, a_fit, r0_fit = bond_length(step_size_r=1.1, pdf=pdf_xyz, iterations=100, T=0.5, r_min=0.2, r_max=2.5, THETA_INITIAL=THETA_INITIAL, E_single=E_single)
 #print(D_fit, a_fit, r0_fit)
 
 #-------------------------------------------
