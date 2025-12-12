@@ -334,17 +334,83 @@ def bond_length(step_size_r, pdf, iterations, T, r_min, r_max, THETA_INITIAL, E_
     return D_fit, a_fit, r0_fit
 
 
+
+def energy_with_uncertainty(samples, theta1, theta2, theta3, q, n_blocks=20):
+    coords = samples.reshape(-1, 2, 3)
+    r1 = coords[:, 0]
+    r2 = coords[:, 1]
+
+    q12 = np.linalg.norm(q[0] - q[1])
+    h = 10**(-3.5)
+    eps = 1e-12
+
+    psi_base = psi_h2(r1[:, 0], r1[:, 1], r1[:, 2],
+                      r2[:, 0], r2[:, 1], r2[:, 2],
+                      theta1, theta2, theta3, q[0], q[1])
+
+    laplacian = np.zeros_like(psi_base)
+    for e_idx in range(2):
+        for dim in range(3):
+            coords_plus = coords.copy()
+            coords_minus = coords.copy()
+            coords_plus[:, e_idx, dim] += h
+            coords_minus[:, e_idx, dim] -= h
+
+            psi_plus = psi_h2(coords_plus[:, 0, 0], coords_plus[:, 0, 1], coords_plus[:, 0, 2],
+                              coords_plus[:, 1, 0], coords_plus[:, 1, 1], coords_plus[:, 1, 2],
+                              theta1, theta2, theta3, q[0], q[1])
+            psi_minus = psi_h2(coords_minus[:, 0, 0], coords_minus[:, 0, 1], coords_minus[:, 0, 2],
+                               coords_minus[:, 1, 0], coords_minus[:, 1, 1], coords_minus[:, 1, 2],
+                               theta1, theta2, theta3, q[0], q[1])
+
+            laplacian += psi_plus - 2.0 * psi_base + psi_minus
+
+    laplacian /= h**2
+
+    r1_q1 = np.linalg.norm(r1 - q[0], axis=1) + eps
+    r1_q2 = np.linalg.norm(r1 - q[1], axis=1) + eps
+    r2_q1 = np.linalg.norm(r2 - q[0], axis=1) + eps
+    r2_q2 = np.linalg.norm(r2 - q[1], axis=1) + eps
+    r12   = np.linalg.norm(r1 - r2, axis=1) + eps
+
+    potential = (-1.0 / r1_q1 - 1.0 / r1_q2 - 1.0 / r2_q1 - 1.0 / r2_q2
+                 + 1.0 / q12 + 1.0 / r12)
+
+    local_E = -(0.5 / psi_base) * laplacian + potential
+
+    # --- block averaging for correlated samples ---
+    n = local_E.size
+    n_blocks = int(n_blocks)
+    if n_blocks < 2:
+        return float(np.mean(local_E)), float("nan")
+
+    block_size = n // n_blocks
+    if block_size < 1:
+        # Too few samples for requested blocks: fall back to naive SE
+        return float(np.mean(local_E)), float(np.std(local_E, ddof=1) / np.sqrt(max(n, 1)))
+
+    trimmed = local_E[:block_size * n_blocks]
+    blocks = trimmed.reshape(n_blocks, block_size)
+    block_means = blocks.mean(axis=1)
+
+    mean_E = float(block_means.mean())
+    # standard error of the mean estimated from block means:
+    se_E = float(block_means.std(ddof=1) / np.sqrt(n_blocks))
+
+    return mean_E, se_E
+
 theta1, theta2, theta3, percentage_theta = monte_carlo_minimisation_2protons(0.8, 0.4, pdf_xyz, 200, 1, q_1, q_2, q, THETA_INITIAL)
 print("Optimized theta values for H2 molecule:", theta1, theta2, theta3)
 #print(f"Percentage of theta accepted: {percentage_theta:.2f}%")
 
-energy_estimate = energy(metropolis_2protons_multi(0.8, pdf_xyz, 10000, theta1, theta2, theta3, q_1, q_2), theta1, theta2, theta3, q)
-print("Estimated Energy Expectation Value for H2 molecule (10000 walkers):", energy_estimate)
+samples = metropolis_2protons_multi(0.8, pdf_xyz, 10000, theta1, theta2, theta3, q_1, q_2)
+E_mean, E_err = energy_with_uncertainty(samples, theta1, theta2, theta3, q, n_blocks=20)
+print(f"Estimated Energy Expectation Value for H2 molecule (10000 walkers): {E_mean:.6f} ± {E_err:.6f}")
 
-plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2)
+#plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2)
 
-D_fit, a_fit, r0_fit = bond_length(step_size_r=1.1, pdf=pdf_xyz, iterations=100, T=0.5, r_min=0.2, r_max=2.5, THETA_INITIAL=THETA_INITIAL, E_single=E_single)
-print(D_fit, a_fit, r0_fit)
+#D_fit, a_fit, r0_fit = bond_length(step_size_r=1.1, pdf=pdf_xyz, iterations=100, T=0.5, r_min=0.2, r_max=2.5, THETA_INITIAL=THETA_INITIAL, E_single=E_single)
+#print(D_fit, a_fit, r0_fit)
 
 #-------------------------------------------
 end = time.time()
