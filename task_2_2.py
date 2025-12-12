@@ -143,6 +143,6 @@ print("Estimated Energy Expectation Value for n = 1:", energy)
 
 #-------------------------------------------
 end = time.time()
-print(f"Run time: {end - start:.5f} seconds")
+#print(f"Run time: {end - start:.5f} seconds")
 
 plt.show()

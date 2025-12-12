@@ -125,8 +125,8 @@ def metropolis_2protons_multi(step_size, pdf, n_walkers, theta1, theta2, theta3,
 
     acceptance_rate = accepted_moves / total_moves
 
-    print(f"Acceptance rate: {100*acceptance_rate:.2f}% "
-          f"({accepted_moves}/{total_moves})")
+    #print(f"Acceptance rate: {100*acceptance_rate:.2f}% "
+    #      f"({accepted_moves}/{total_moves})")
 
     return samples_post.reshape(-1, 6)
 
@@ -216,8 +216,8 @@ def monte_carlo_minimisation_2protons(step_size_r, step_size_theta, pdf, iterati
             accepted_theta_number += 1
 
         a += 1
-        print(f"Theta values {a}:", theta1, theta2, theta3)
-        print(f"T values {a}:", T)
+        #print(f"Theta values {a}:", theta1, theta2, theta3)
+        #print(f"T values {a}:", T)
         n += 1
 
         if n == 5:
@@ -227,7 +227,7 @@ def monte_carlo_minimisation_2protons(step_size_r, step_size_theta, pdf, iterati
     return theta1, theta2, theta3, accepted_theta_number / iterations * 100
 
 
-def plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2, n_walkers=500000, step_size=0.5, bins=600 ):
+def plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2, n_walkers=100000, step_size=0.5, bins=600 ):
     """
     Plot a 2D histogram of electron positions (x vs z) for the H2 molecule.
     Samples are drawn from the Metropolis distribution |psi|^2.
@@ -276,14 +276,14 @@ def bond_length(step_size_r, pdf, iterations, T, r_min, r_max, THETA_INITIAL, E_
     energy_estimates = []
     half_separations = []
 
-    for i in np.arange(r_min, r_max, 0.05):
+    for i in np.arange(r_min, r_max, 0.1):
         q_1 = np.array([i, 0.0, 0.0])
         q_2 = np.array([-i, 0.0, 0.0])
         q   = np.array([q_1, q_2])
 
         # Optimise thetas for this separation
         theta1, theta2, theta3, percentage_theta = monte_carlo_minimisation_2protons(step_size_r=step_size_r, step_size_theta=0.3, pdf=pdf, iterations=iterations, T=T, q_1=q_1, q_2=q_2, q=q, theta=THETA_INITIAL)
-        print(f"Percentage of theta accepted at separation {2*i}: {percentage_theta:.2f}%")
+        #print(f"Percentage of theta accepted at separation {2*i}: {percentage_theta:.2f}%")
         # High-statistics energy estimate at this separation
         samples = metropolis_2protons_multi(step_size_r, pdf, n_walkers=1000, theta1=theta1, theta2=theta2, theta3=theta3, q_1=q_1, q_2=q_2, iterations=100)
         energy_estimate = energy(samples, theta1, theta2, theta3, q)
@@ -309,7 +309,7 @@ def bond_length(step_size_r, pdf, iterations, T, r_min, r_max, THETA_INITIAL, E_
     params, cov = curve_fit(morse_fit_three, r_data, energies, p0=[D_guess, a_guess, r0_guess])
     D_fit, a_fit, r0_fit = params
 
-    print("Morse fit parameters (project form):")
+    print("Morse fit parameters:")
     print(f"D = {D_fit:.6f}")
     print(f"a = {a_fit:.6f}")
     print(f"r0 = {r0_fit:.6f}  (bond length)")
@@ -336,16 +336,16 @@ def bond_length(step_size_r, pdf, iterations, T, r_min, r_max, THETA_INITIAL, E_
 
 theta1, theta2, theta3, percentage_theta = monte_carlo_minimisation_2protons(0.8, 0.4, pdf_xyz, 200, 1, q_1, q_2, q, THETA_INITIAL)
 print("Optimized theta values for H2 molecule:", theta1, theta2, theta3)
-print(f"Percentage of theta accepted: {percentage_theta:.2f}%")
+#print(f"Percentage of theta accepted: {percentage_theta:.2f}%")
 
-#energy_estimate = energy(metropolis_2protons_multi(0.8, pdf_xyz, 10000, theta1, theta2, theta3, q_1, q_2), theta1, theta2, theta3, q)
-#print("Estimated Energy Expectation Value for H2 molecule (10000 walkers):", energy_estimate)
+energy_estimate = energy(metropolis_2protons_multi(0.8, pdf_xyz, 10000, theta1, theta2, theta3, q_1, q_2), theta1, theta2, theta3, q)
+print("Estimated Energy Expectation Value for H2 molecule (10000 walkers):", energy_estimate)
 
 plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2)
 
-#D_fit, a_fit, r0_fit = bond_length(step_size_r=1.1, pdf=pdf_xyz, iterations=100, T=0.5, r_min=0.2, r_max=2.5, THETA_INITIAL=THETA_INITIAL, E_single=E_single)
-#print(D_fit, a_fit, r0_fit)
+D_fit, a_fit, r0_fit = bond_length(step_size_r=1.1, pdf=pdf_xyz, iterations=100, T=0.5, r_min=0.2, r_max=2.5, THETA_INITIAL=THETA_INITIAL, E_single=E_single)
+print(D_fit, a_fit, r0_fit)
 
 #-------------------------------------------
 end = time.time()
-print(f"Run time: {end - start:.5f} seconds")
+#print(f"Run time: {end - start:.5f} seconds")

@@ -129,7 +129,7 @@ def monte_carlo_minimisation(theta_step, pdf, iterations, T, theta0, n_walkers=2
 
     # Initial energy at starting theta
     samples, percentage = metropolis_3d_multi(pos_step_size, pdf, pos_steps, n_walkers, theta)
-    print("Initial acceptance (positions):", percentage)
+    #print("Initial acceptance (positions):", percentage)
     E = energy(samples, theta)
 
     accepted_number_mc = 0
@@ -143,7 +143,7 @@ def monte_carlo_minimisation(theta_step, pdf, iterations, T, theta0, n_walkers=2
 
         # sample positions for proposed theta
         samples_dash, percentage_dash = metropolis_3d_multi(pos_step_size, pdf, pos_steps, n_walkers, theta_dash)
-        print(f"Step {i} position acceptance: {percentage_dash:.2f}%")
+        #print(f"Step {i} position acceptance: {percentage_dash:.2f}%")
         E_dash = energy(samples_dash, theta_dash)
 
         delta_E = E_dash - E
@@ -175,13 +175,13 @@ def monte_carlo_minimisation(theta_step, pdf, iterations, T, theta0, n_walkers=2
 opt_theta, percentage_mc, theta_hist, E_hist = monte_carlo_minimisation(theta_step=0.04, pdf=pdf_xyz, iterations=200, T=0.05, theta0=theta, n_walkers=200, pos_steps=1000, pos_step_size=1.1)
 
 print("Optimized Theta:", opt_theta)
-print("Theta acceptance (%):", percentage_mc)
+#print("Theta acceptance (%):", percentage_mc)
 
 # Final energy estimate with optimised theta
 samples_optimized, percentage = metropolis_3d_multi(step_size=1.1, pdf=pdf_xyz, iterations=2000, n_walkers=200, theta=opt_theta)
 
 print("Estimated Energy Expectation Value with Optimized Theta:", energy(samples_optimized, opt_theta))
-print("Position acceptance with Optimized Theta:", percentage) 
+#print("Position acceptance with Optimized Theta:", percentage) 
 
 #plot
 iters = np.arange(theta_hist.shape[0])
@@ -211,4 +211,4 @@ plt.tight_layout()
 plt.show()
 
 end = time.time()
-print(f"Run time: {end - start:.5f} seconds")
+#print(f"Run time: {end - start:.5f} seconds")
