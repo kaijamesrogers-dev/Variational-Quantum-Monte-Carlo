@@ -6,20 +6,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
+#Match text to lab report
 plt.rcParams.update({
-    'font.size': 14,       # general font size
-    'axes.titlesize': 14,  # title size
-    'axes.labelsize': 14,  # x/y label size
-    'xtick.labelsize': 14,
+    'font.size': 14, 
+    'axes.titlesize': 14,  
+    'axes.labelsize': 14, 
     'ytick.labelsize': 14,
-    'legend.fontsize': 14
-})
+    'legend.fontsize': 14})
 
 plt.rcParams.update({
     "font.family": "serif",
-    "mathtext.fontset": "cm",   # <-- use Computer Modern
-    "axes.unicode_minus": False
-})
+    "mathtext.fontset": "cm",
+    "axes.unicode_minus": False})
 
 THETA_INITIAL = 0.5
 q_1 = np.array([0.6611475, 0.0, 0.0])  # position of proton 1
@@ -32,29 +30,10 @@ E_single = -0.5
 def psi_h2(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2):
     """
     Trial wavefunction ω(r1, r2; θ1, θ2, θ3) for the H₂ molecule.
-
-    This version is vectorised over the electron coordinates:
-    x_a, y_a, ... can be scalars OR 1D NumPy arrays of shape (n_walkers,).
-
-    Parameters
-    ----------
-    x_a, y_a, z_a : float or ndarray
-        Coordinates of electron A.
-    x_b, y_b, z_b : float or ndarray
-        Coordinates of electron B.
-    theta1, theta2, theta3 : float
-        Variational parameters (see project equation 18).
-    q1, q2 : array_like
-        Positions of the two protons, shape (3,).
-
-    Returns
-    -------
-    psi : float or ndarray
-        Wavefunction value(s). If inputs are arrays, output has shape (n_walkers,).
     """
     # Stack coordinates into (..., 3) arrays
-    r1 = np.stack((x_a, y_a, z_a), axis=-1)  # shape (..., 3)
-    r2 = np.stack((x_b, y_b, z_b), axis=-1)  # shape (..., 3)
+    r1 = np.stack((x_a, y_a, z_a), axis=-1)
+    r2 = np.stack((x_b, y_b, z_b), axis=-1)
 
     q1 = np.asarray(q1)
     q2 = np.asarray(q2)
@@ -69,10 +48,7 @@ def psi_h2(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2):
     r12 = np.linalg.norm(r1 - r2, axis=-1)
 
     # Slater-like part (the bracket in eq. 18)
-    slater = (
-        np.exp(-theta1 * (r1_q1 + r2_q2)) +
-        np.exp(-theta1 * (r1_q2 + r2_q1))
-    )
+    slater = (np.exp(-theta1 * (r1_q1 + r2_q2)) + np.exp(-theta1 * (r1_q2 + r2_q1)))
 
     # Jastrow factor exp(-θ2 / (1 + θ3 r12))
     jastrow = np.exp(-theta2 / (1.0 + theta3 * r12))
@@ -81,9 +57,7 @@ def psi_h2(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2):
 
 
 def pdf_xyz(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2):
-    """Probability density |ω|² for the H₂ trial wavefunction.
-
-    Works with scalar inputs or 1D arrays (vectorised over walkers).
+    """Probability density |ω|² for the H₂ trial wavefunction..
     """
     psi = psi_h2(x_a, y_a, z_a, x_b, y_b, z_b, theta1, theta2, theta3, q1, q2)
     return psi**2
@@ -97,7 +71,7 @@ def metropolis_2protons_multi(step_size, pdf, n_walkers, theta1, theta2, theta3,
 
     samples = np.zeros((iterations, n_walkers, 6))
 
-    # --- Acceptance counters ---
+    #Acceptance counter
     total_moves = (iterations - 1) * n_walkers
     accepted_moves = 0
 
@@ -113,9 +87,7 @@ def metropolis_2protons_multi(step_size, pdf, n_walkers, theta1, theta2, theta3,
     for i in range(1, iterations):
         current = samples[i - 1]
 
-        proposal_steps = step_size * (
-            2 * u[idx:idx + 6 * n_walkers].reshape(n_walkers, 6) - 1
-        )
+        proposal_steps = step_size * (2 * u[idx:idx + 6 * n_walkers].reshape(n_walkers, 6) - 1)
         idx += 6 * n_walkers
 
         proposal = current + proposal_steps
@@ -143,7 +115,7 @@ def metropolis_2protons_multi(step_size, pdf, n_walkers, theta1, theta2, theta3,
 
         accept = u_accept < alpha
 
-        # ---- Count acceptances ----
+        #Count acceptances
         accepted_moves += np.sum(accept)
 
         samples[i] = np.where(accept[:, None], proposal, current)
@@ -161,7 +133,7 @@ def metropolis_2protons_multi(step_size, pdf, n_walkers, theta1, theta2, theta3,
 
 def energy(samples, theta1, theta2, theta3, q):
     """Estimate the energy expectation value using vectorised operations."""
-    coords = samples.reshape(-1, 2, 3)  # (n_samples, electron, xyz)
+    coords = samples.reshape(-1, 2, 3)
     r1 = coords[:, 0]
     r2 = coords[:, 1]
 
@@ -170,11 +142,7 @@ def energy(samples, theta1, theta2, theta3, q):
     eps = 1e-12  # avoids division spikes if a walker hits a nucleus
 
     # Base wavefunction values for all samples
-    psi_base = psi_h2(
-        r1[:, 0], r1[:, 1], r1[:, 2],
-        r2[:, 0], r2[:, 1], r2[:, 2],
-        theta1, theta2, theta3, q[0], q[1]
-    )
+    psi_base = psi_h2(r1[:, 0], r1[:, 1], r1[:, 2], r2[:, 0], r2[:, 1], r2[:, 2], theta1, theta2, theta3, q[0], q[1])
 
     # Vectorised central-difference Laplacian over both electrons and xyz
     laplacian = np.zeros_like(psi_base)
@@ -185,36 +153,21 @@ def energy(samples, theta1, theta2, theta3, q):
             coords_plus[:, e_idx, dim] += h
             coords_minus[:, e_idx, dim] -= h
 
-            psi_plus = psi_h2(
-                coords_plus[:, 0, 0], coords_plus[:, 0, 1], coords_plus[:, 0, 2],
-                coords_plus[:, 1, 0], coords_plus[:, 1, 1], coords_plus[:, 1, 2],
-                theta1, theta2, theta3, q[0], q[1]
-            )
-            psi_minus = psi_h2(
-                coords_minus[:, 0, 0], coords_minus[:, 0, 1], coords_minus[:, 0, 2],
-                coords_minus[:, 1, 0], coords_minus[:, 1, 1], coords_minus[:, 1, 2],
-                theta1, theta2, theta3, q[0], q[1]
-            )
+            psi_plus = psi_h2(coords_plus[:, 0, 0], coords_plus[:, 0, 1], coords_plus[:, 0, 2], coords_plus[:, 1, 0], coords_plus[:, 1, 1], coords_plus[:, 1, 2], theta1, theta2, theta3, q[0], q[1])
+            psi_minus = psi_h2(coords_minus[:, 0, 0], coords_minus[:, 0, 1], coords_minus[:, 0, 2], coords_minus[:, 1, 0], coords_minus[:, 1, 1], coords_minus[:, 1, 2], theta1, theta2, theta3, q[0], q[1])
 
             laplacian += psi_plus - 2.0 * psi_base + psi_minus
 
     laplacian /= h ** 2
 
-    # Potential energy terms in bulk
+    # Potential energy terms
     r1_q1 = np.linalg.norm(r1 - q[0], axis=1) + eps
     r1_q2 = np.linalg.norm(r1 - q[1], axis=1) + eps
     r2_q1 = np.linalg.norm(r2 - q[0], axis=1) + eps
     r2_q2 = np.linalg.norm(r2 - q[1], axis=1) + eps
     r12 = np.linalg.norm(r1 - r2, axis=1) + eps
 
-    potential = (
-        -1.0 / r1_q1
-        -1.0 / r1_q2
-        -1.0 / r2_q1
-        -1.0 / r2_q2
-        + 1.0 / q12
-        + 1.0 / r12
-    )
+    potential = (-1.0 / r1_q1 -1.0 / r1_q2 -1.0 / r2_q1 -1.0 / r2_q2 + 1.0 / q12 + 1.0 / r12)
 
     local_E = -(0.5 / psi_base) * laplacian + potential
     return np.mean(local_E)
@@ -225,8 +178,7 @@ def monte_carlo_minimisation_2protons(step_size_r, step_size_theta, pdf, iterati
     theta2 = theta
     theta3 = theta
 
-    samples = metropolis_2protons_multi(step_size_r, pdf, 1000,
-                                        theta1, theta2, theta3, q_1, q_2)
+    samples = metropolis_2protons_multi(step_size_r, pdf, 1000, theta1, theta2, theta3, q_1, q_2)
     E = energy(samples, theta1, theta2, theta3, q)
 
     u = np.random.rand(3 * iterations)
@@ -246,9 +198,7 @@ def monte_carlo_minimisation_2protons(step_size_r, step_size_theta, pdf, iterati
                 0.0 <= theta3_dash < 5.0):
             continue
 
-        samples_dash = metropolis_2protons_multi(step_size_r, pdf, 500,
-                                                 theta1_dash, theta2_dash, theta3_dash,
-                                                 q_1, q_2)
+        samples_dash = metropolis_2protons_multi(step_size_r, pdf, 500, theta1_dash, theta2_dash, theta3_dash, q_1, q_2)
         E_dash = energy(samples_dash, theta1_dash, theta2_dash, theta3_dash, q)
 
         delta_E = E_dash - E
@@ -277,42 +227,22 @@ def monte_carlo_minimisation_2protons(step_size_r, step_size_theta, pdf, iterati
     return theta1, theta2, theta3, accepted_theta_number / iterations * 100
 
 
-
 def plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2, n_walkers=500000, step_size=0.5, bins=600 ):
     """
     Plot a 2D histogram of electron positions (x vs z) for the H2 molecule.
     Samples are drawn from the Metropolis distribution |psi|^2.
-
-    Parameters
-    ----------
-    theta1, theta2, theta3 : float
-        Optimised variational parameters.
-    q_1, q_2 : array_like
-        Proton positions.
-    n_samples : int
-        Number of Metropolis samples.
-    step_size : float
-        Proposal step size for Metropolis.
-    bins : int
-        Number of bins for the 2D histogram.
     """
 
-    # ---- 1. Generate samples from |psi|² ------------------------
-    samples = metropolis_2protons_multi(step_size, pdf_xyz,
-                                 n_walkers,
-                                  theta1, theta2, theta3,
-                                  q_1, q_2)
+    samples = metropolis_2protons_multi(step_size, pdf_xyz, n_walkers, theta1, theta2, theta3, q_1, q_2)
 
-    # samples[:, :3] → electron A
-    # samples[:, 3:] → electron B
     r1 = samples[:, :3]
     r2 = samples[:, 3:]
 
-    # ---- 2. Convert to x,z coordinates (ignore y) ---------------
-    x_vals = np.concatenate([r1[:, 0], r2[:, 0]])   # electron A + B
+    #convert to x, z coordinates
+    x_vals = np.concatenate([r1[:, 0], r2[:, 0]])
     z_vals = np.concatenate([r1[:, 2], r2[:, 2]])
 
-    # ---- 3. Build 2D histogram ---------------------------------
+    #plot
     plt.figure(figsize=(6, 5))
 
     plt.hist2d(x_vals, z_vals, bins=bins, density=True,
@@ -324,10 +254,9 @@ def plot_h2_pdf_histogram(theta1, theta2, theta3, q_1, q_2, n_walkers=500000, st
     plt.xlim(-3, 3)
     plt.ylim(-3, 3)
 
-    # Colour bar
     plt.colorbar(label="Probability Density")
 
-    # Mark proton positions in the x–z plane
+    # Mark proton positions
     plt.scatter([q_1[0], q_2[0]],
                 [q_1[2], q_2[2]],
                 c="cyan", s=80, marker="x", label="Protons")
@@ -345,78 +274,54 @@ def morse_total(r, D, a, r0, E_single):
 def bond_length(step_size_r, pdf, iterations, T, r_min, r_max, THETA_INITIAL, E_single):
 
     energy_estimates = []
-    half_separations = []   # this is your 'i' (so physical R = 2*i)
+    half_separations = []
 
-    for i in np.arange(r_min, r_max, 0.1):
-        q_1 = np.array([i, 0.0, 0.0])   # proton 1 at +i
-        q_2 = np.array([-i, 0.0, 0.0])  # proton 2 at -i
+    for i in np.arange(r_min, r_max, 0.05):
+        q_1 = np.array([i, 0.0, 0.0])
+        q_2 = np.array([-i, 0.0, 0.0])
         q   = np.array([q_1, q_2])
 
-        # Optimise thetas for THIS separation
-        theta1, theta2, theta3, percentage_theta = monte_carlo_minimisation_2protons(
-            step_size_r=step_size_r,
-            step_size_theta=0.3,      # tweak as you like
-            pdf=pdf,
-            iterations=iterations,
-            T=T,
-            q_1=q_1,
-            q_2=q_2,
-            q=q,
-            theta=THETA_INITIAL
-        )
+        # Optimise thetas for this separation
+        theta1, theta2, theta3, percentage_theta = monte_carlo_minimisation_2protons(step_size_r=step_size_r, step_size_theta=0.3, pdf=pdf, iterations=iterations, T=T, q_1=q_1, q_2=q_2, q=q, theta=THETA_INITIAL)
         print(f"Percentage of theta accepted at separation {2*i}: {percentage_theta:.2f}%")
         # High-statistics energy estimate at this separation
-        samples = metropolis_2protons_multi(
-            step_size_r, pdf,
-            n_walkers=1000,
-            theta1=theta1, theta2=theta2, theta3=theta3,
-            q_1=q_1, q_2=q_2,
-            iterations=100
-        )
+        samples = metropolis_2protons_multi(step_size_r, pdf, n_walkers=1000, theta1=theta1, theta2=theta2, theta3=theta3, q_1=q_1, q_2=q_2, iterations=100)
         energy_estimate = energy(samples, theta1, theta2, theta3, q)
 
         energy_estimates.append(energy_estimate)
         half_separations.append(i)
 
-    # Convert lists to arrays
     half_separations = np.array(half_separations)
     energies = np.array(energy_estimates)
 
-    # Physical bond length r: distance between protons = 2*i
     r_data = 2.0 * half_separations
 
-    # ---- Fit Morse potential in project form ----
-    # Rough initial guesses
     E_min_guess = energies.min()
     r0_guess = r_data[np.argmin(energies)]
-    D_guess = energies.max() - E_min_guess  # rough well depth
-    a_guess = 1.0                           # typical order of magnitude
+    D_guess = energies.max() - E_min_guess 
+    a_guess = 1.0               
 
     p0 = [D_guess, a_guess, r0_guess, E_single]
 
-    # We want to fit only D, a, r0 (E_single is known),
-    # so wrap a 3-parameter function for curve_fit:
     def morse_fit_three(r, D, a, r0):
         return morse_total(r, D, a, r0, E_single)
 
-    params, cov = curve_fit(morse_fit_three, r_data, energies,
-                            p0=[D_guess, a_guess, r0_guess])
+    params, cov = curve_fit(morse_fit_three, r_data, energies, p0=[D_guess, a_guess, r0_guess])
     D_fit, a_fit, r0_fit = params
 
     print("Morse fit parameters (project form):")
-    print(f"  D      = {D_fit:.6f}")
-    print(f"  a      = {a_fit:.6f}")
-    print(f"  r0     = {r0_fit:.6f}  (bond length)")
-    print(f"  E_min  = {morse_total(r0_fit, D_fit, a_fit, r0_fit, E_single):.6f}")
+    print(f"D = {D_fit:.6f}")
+    print(f"a = {a_fit:.6f}")
+    print(f"r0 = {r0_fit:.6f}  (bond length)")
+    print(f"E_min = {morse_total(r0_fit, D_fit, a_fit, r0_fit, E_single):.6f}")
 
     # Smooth curve for plotting
     r_fit = np.linspace(r_data.min(), r_data.max(), 400)
     E_fit = morse_total(r_fit, D_fit, a_fit, r0_fit, E_single)
 
-    # ---- Plot raw MC data + Morse fit ----
     plt.figure(figsize=(6, 5), clear = True)
     plt.title("")
-    plt.scatter(r_data, energies, color="black", label="MC energies")
+    plt.scatter(r_data, energies, color="black", s=10, label="MC energies")
     plt.plot(r_fit, E_fit, "r--", label="Morse fit")
 
     plt.xlabel("Bond length r (a.u.)")
@@ -426,7 +331,6 @@ def bond_length(step_size_r, pdf, iterations, T, r_min, r_max, THETA_INITIAL, E_
     plt.tight_layout()
     plt.show()
 
-    # Return the fitted Morse parameters
     return D_fit, a_fit, r0_fit
 
 
