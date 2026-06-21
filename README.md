@@ -82,7 +82,7 @@ compares the 4th-order central-difference formula for reference.
 
 **Results:**
 
-![Finite-difference error scaling](images/fig1_finite_difference_error.png)
+![Finite-difference error scaling](Figures/Figure_1.png)
 
 For larger step sizes, the error decreases as the step size shrinks, exactly
 as predicted by the formula's theoretical accuracy. Below a certain step
@@ -113,13 +113,7 @@ the first excited state.
 
 **Results:**
 
-![Metropolis histogram vs analytical PDF](images/fig2_metropolis_histogram.png)
-
-The sampled distribution matched the analytical probability density
-closely, and the estimated energies agreed with the exact values (0.5 and
-1.5, in the units used) to within about one part in a million — confirming
-the sampling and energy-estimation procedure is correct before moving to
-higher dimensions.
+![Metropolis histogram vs analytical PDF](Figures/Figure_2.png)
 
 ---
 
@@ -141,11 +135,7 @@ but isn't the true minimum.
 
 **Results:**
 
-![Theta and energy convergence](images/fig3_theta_convergence.png)
-
-The search converged to θ ≈ 0.987, very close to the known exact value of
-1, and the resulting energy matched the known exact ground-state energy to
-within about one part in ten thousand.
+![Theta and energy convergence](Figures/Figure_3.png)
 
 ---
 
@@ -160,40 +150,9 @@ The trial wavefunction form is known as the **Slater-Jastrow** form. This
 wavefunction depends on three variational parameters (θ₁, θ₂, θ₃), rather
 than the single parameter used for the hydrogen atom.
 
-This file:
-
-- Samples electron positions in the resulting six-dimensional space (three
-  coordinates per electron) using the Metropolis algorithm
-- Estimates the energy for a given set of parameters using the Monte Carlo
-  local-energy estimator, now including five Coulomb interaction terms
-  (electron-proton attraction for each electron-proton pair, plus
-  electron-electron repulsion)
-- Uses simulated annealing to search over all three parameters jointly, in
-  the same way as File 3
-- Repeats this entire optimisation at a range of different separations
-  between the two protons, to build up a curve of energy as a function of
-  bond length
-- Fits that curve to a **Morse potential**, a standard empirical formula for
-  the energy of a chemical bond as a function of separation, to extract the
-  predicted equilibrium bond length and binding energy
-
-Statistical uncertainty on the final energy estimate is calculated using
-block averaging, which accounts for the fact that consecutive Metropolis
-samples are correlated rather than fully independent.
-
 **Results:**
 
-![Energy vs bond length with Morse fit](images/fig4_morse_fit.png)
-
-![Electron density map](images/fig5_electron_density.png)
-
-A predicted equilibrium bond length of r₀ = 1.3223 a.u. and minimum energy
-of E_min = −1.1565 a.u., compared to experimental values of 1.40 a.u. and a
-dissociation energy of 0.17 a.u. — differences of about 5.6% and 8%
-respectively. The dominant source of this discrepancy is the restricted
-form of the trial wavefunction, rather than Monte Carlo statistical noise,
-which is an order of magnitude smaller than the deviation from the
-experimental value.
+![Energy vs bond length with Morse fit](Figures/Figure_4.png)
 
 ---
 
