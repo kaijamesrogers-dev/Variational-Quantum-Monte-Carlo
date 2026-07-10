@@ -115,6 +115,9 @@ the first excited state.
 
 ![Metropolis histogram vs analytical PDF](Figures/Figure_2.png)
 
+The histogram of sampled positions (blue) matches the probability
+density (red), confirming the Metropolis algorithm is sampling correctly.
+
 ---
 
 ## File 3: `vmc_hydrogen_atom_3d.py` — the hydrogen atom in 3D, with an unknown parameter
@@ -125,7 +128,7 @@ for this system is also known, so it still serves as a validation case —
 but it introduces a feature that all later, harder problems share.
 
 The trial wavefunction used here, ψ(r; θ) = e^(−θr), depends on a
-**variational parameter**, θ, whose correct value isn't known in advance.
+variational parameter, θ, whose correct value isn't known in advance.
 Simulated annealing is used to search over θ: at each step, a new θ is
 proposed and its energy is estimated; the move is accepted if the energy
 decreases, and accepted anyway with a probability that depends on how much
@@ -136,6 +139,9 @@ but isn't the true minimum.
 **Results:**
 
 ![Theta and energy convergence](Figures/Figure_3.png)
+
+θ (blue) and energy (red) both converge as the simulated annealing search
+progresses, settling near the known exact values of θ = 1 and E = −0.5.
 
 ---
 
@@ -153,6 +159,8 @@ than the single parameter used for the hydrogen atom.
 **Results:**
 
 ![Energy vs bond length with Morse fit](Figures/Figure_4.png)
+
+Each electron's sampled positions are plotted as a 2D probability density.
 
 ---
 
