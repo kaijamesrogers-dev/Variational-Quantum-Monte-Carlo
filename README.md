@@ -174,7 +174,9 @@ Python, NumPy (numerical arrays and vectorised computation), Matplotlib
 (plotting), SciPy (curve fitting for the Morse potential).
 
 ---
+## Report
 
+The full write-up (method, results, error analysis) is in [`report.pdf`](VMC_Report.pdf).
 ---
 
 # 日本語
