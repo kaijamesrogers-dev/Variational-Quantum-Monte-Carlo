@@ -145,7 +145,7 @@ progresses, settling near the known exact values of θ = 1 and E = −0.5.
 
 ---
 
-## File 4: `vmc_h2.py` — the hydrogen molecule
+## File 4: `vmc_hydrogen_molecule.py` — the hydrogen molecule
 
 This file applies the full method to the actual system of interest: the
 hydrogen molecule, H₂ — two protons and two electrons, with no exact known
