@@ -177,6 +177,7 @@ Python, NumPy (numerical arrays and vectorised computation), Matplotlib
 ## Report
 
 The full write-up (method, results, error analysis) is in [`report.pdf`](VMC_Report.pdf).
+
 ---
 
 # 日本語
@@ -265,3 +266,9 @@ The full write-up (method, results, error analysis) is in [`report.pdf`](VMC_Rep
 ## 使用ツール
 
 Python、NumPy（数値配列・ベクトル化演算）、Matplotlib（グラフ描画）、SciPy（モースポテンシャルのカーブフィッティング）。
+
+---
+
+## レポート
+
+詳細な手法・結果・誤差解析は [`report.pdf`](LabReport_AIP.pdf) をご覧ください。
