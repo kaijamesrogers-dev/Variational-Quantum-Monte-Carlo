@@ -1,10 +1,12 @@
 # Variational Monte Carlo of the Hydrogen Molecule
 
+[日本語](#日本語)
+
 This project uses a computational method called **Variational Monte Carlo (VMC)**
 to predict two things about the hydrogen molecule (H₂):
 
 1. How far apart its two atoms naturally sit (the **bond length**)
-2. How much energy is "locked into" that arrangement (the **binding energy**)
+2. How much energy is released when the bond forms (the **binding energy**)
 
 ---
 
@@ -115,8 +117,8 @@ the first excited state.
 
 ![Metropolis histogram vs analytical PDF](Figures/Figure_2.png)
 
-The histogram of sampled positions (blue) matches the probability
-density (red), confirming the Metropolis algorithm is sampling correctly.
+*The histogram of sampled positions (blue) matches the exact probability
+density (red), confirming the Metropolis algorithm is sampling correctly.*
 
 ---
 
@@ -140,8 +142,8 @@ but isn't the true minimum.
 
 ![Theta and energy convergence](Figures/Figure_3.png)
 
-θ (blue) and energy (red) both converge as the simulated annealing search
-progresses, settling near the known exact values of θ = 1 and E = −0.5.
+*θ (blue) and energy (red) both converge as the simulated annealing search
+progresses, settling near the known exact values of θ = 1 and E = −0.5.*
 
 ---
 
@@ -158,9 +160,11 @@ than the single parameter used for the hydrogen atom.
 
 **Results:**
 
-![Energy vs bond length with Morse fit](Figures/Figure_4.png)
+![Electron density map](Figures/Figure_4.png)
 
-Each electron's sampled positions are plotted as a 2D probability density.
+*Each electron's sampled positions are plotted as a 2D probability density.
+The concentration of density between the two protons (marked X) is
+consistent with a bonding molecular orbital.*
 
 ---
 
@@ -168,3 +172,94 @@ Each electron's sampled positions are plotted as a 2D probability density.
 
 Python, NumPy (numerical arrays and vectorised computation), Matplotlib
 (plotting), SciPy (curve fitting for the Morse potential).
+
+---
+
+---
+
+# 日本語
+
+[English](#variational-monte-carlo-of-the-hydrogen-molecule)
+
+# 水素分子の変分モンテカルロ法
+
+本プロジェクトでは、**変分モンテカルロ法（VMC）**を用いて水素分子（H₂）の以下の2つの物理量を予測する。
+
+1. 2つの原子間の平衡距離（**結合長**）
+2. その配置における最小エネルギー（**結合エネルギー**）
+
+---
+
+## 概要
+
+水素原子より複雑な分子の配置は解析的に求めることができず、数値計算による手法が必要となる。分子は最もエネルギーの低い配置に自然と落ち着く性質があるため、本プロジェクトではその最小エネルギー配置を以下の計算手法を組み合わせて求める。
+
+**モンテカルロ積分**は、与えられた試行波動関数に対するエネルギー期待値の推定に用いる。エネルギーは全電子の位置にわたる積分として定義されるが、電子が複数になると閉じた形の解が存在せず、格子上での数値積分も次元数に対して指数的にコストが増大するため現実的でない。モンテカルロ積分はこの問題を、積分を大量のサンプルの平均として近似することで回避する。サンプル数が増えるほど推定精度が向上する。
+
+**メトロポリス法**は、上記のサンプルを正しく生成するためのアルゴリズムである。サンプルは一様乱数で生成するのではなく、波動関数の確率密度|ψ|²に従って分布させる必要がある。メトロポリス法では、現在の位置から小さなランダムステップを提案し、新旧の確率密度の比に基づいて採否を決定する。より確率の高い位置への移動は必ず受理し、より低い位置への移動は確率密度の比に等しい確率で受理する。この操作を多数回繰り返すことで、サンプルの分布が|ψ|²に収束する。
+
+**シミュレーテッドアニーリング**は、試行波動関数の変分パラメータの最適化に用いる。試行波動関数の形状は1つ以上の未知パラメータに依存しており、エネルギーを最小化するパラメータ値は事前には分からないため、探索によって求める必要がある。シミュレーテッドアニーリングでは、パラメータにランダムな変化を提案し、エネルギーが下がれば即座に受理し、上がる場合でも時間とともに減少する確率で受理する。この「悪化を許容する確率」により、局所最小値への早期収束を回避できる。探索が進むにつれてこの受理確率を段階的に低下（冷却）させ、最終的な解へと収束させる。
+
+これら3つの手法はループを形成する。シミュレーテッドアニーリングが変分パラメータの候補を提案し、メトロポリス法がその波動関数に従う電子位置サンプルを生成し、モンテカルロ積分がサンプルからエネルギーを推定し、その結果をシミュレーテッドアニーリングにフィードバックしてパラメータの採否を決定する。このループの最終的な最小エネルギー結果が、水素分子の配置に対する本プロジェクトの予測値となる。
+
+---
+
+## ファイル1：`finite_difference_test.py` — 数値微分の検証
+
+以降のすべてのファイルにおけるエネルギー計算は、サンプル点での波動関数の2階微分の計算に依存する。コンピュータは任意の関数に対して厳密な微積分を実行できないため、2次中心差分公式による近似を使用する。本ファイルでは、この近似を実際の計算に使用する前に精度を検証する。
+
+テストには調和振動子の基底状態波動関数を使用する。この系は2階微分の厳密解が解析的に知られており、広範なステップ幅にわたって数値近似との比較が可能である。また参考として4次中心差分公式との比較も行う。
+
+**結果：**
+
+![有限差分誤差のスケーリング](Figures/Figure_1.png)
+
+大きなステップ幅では、ステップ幅を縮小するにつれて誤差が理論予測通りに減少する。しかし一定以下のステップ幅では誤差が増加に転じる。これは、ほぼ等しい数値の差分演算において浮動小数点の桁落ちが支配的になるためである。本ファイルはこれら2つの誤差がつり合う最適なステップ幅を特定し、以降のすべてのファイルで使用する。
+
+---
+
+## ファイル2：`metropolis_1d_test.py` — 1次元でのメトロポリス法の検証
+
+本ファイルでは、最も単純な系である1次元調和振動子ポテンシャル下の1粒子にメトロポリス法を適用し、アルゴリズムの正確性を検証する。この系の基底状態および第1励起状態のエネルギーは理論的に既知であるため、より高次元の3次元・6次元への拡張前の制御されたテストとして機能する。
+
+アルゴリズムにより大量のサンプル位置を生成し、その分布を既知の解析的確率密度と比較する。同じサンプルを用いて、局所エネルギー公式による基底状態および第1励起状態のモンテカルロエネルギー推定も行う。
+
+**結果：**
+
+![メトロポリス法のヒストグラムと解析的PDF](Figures/Figure_2.png)
+
+*サンプル位置のヒストグラム（青）が確率密度（赤）と一致しており、メトロポリス法が正しくサンプリングできていることが確認できる。*
+
+---
+
+## ファイル3：`vmc_hydrogen_atom_3d.py` — 3次元水素原子と未知パラメータ
+
+本ファイルでは、1陽子・1電子系の水素原子に手法を拡張し、完全な3次元空間で計算を行う。この系の基底状態エネルギーも既知であるため引き続き検証用として機能するが、以降のより難しい問題に共通する重要な特徴を導入する。
+
+使用する試行波動関数ψ(r; θ) = e^(−θr)は、事前に正しい値が分からない変分パラメータθに依存する。シミュレーテッドアニーリングによりθを探索し、各ステップで新しいθを提案してエネルギーを推定し、エネルギーが減少すれば受理し、悪化する場合も探索の進行とともに減少する確率で受理する。これにより、局所最小値への収束を回避する。
+
+**結果：**
+
+![θとエネルギーの収束](Figures/Figure_3.png)
+
+*シミュレーテッドアニーリングの探索が進むにつれてθ（青）とエネルギー（赤）がともに収束し、既知の厳密値θ = 1、E = −0.5に近い値に落ち着く。*
+
+---
+
+## ファイル4：`vmc_hydrogen_molecule.py` — 水素分子
+
+本ファイルでは、実際の対象系である水素分子H₂（2陽子・2電子）に完全な手法を適用する。電子間相互作用を含むため、対応する方程式には閉じた形の解が存在しない。
+
+使用する試行波動関数は**スレーター-ジャストロー型**であり、水素原子で使用した1パラメータに対して3つの変分パラメータ（θ₁, θ₂, θ₃）を持つ。
+
+**結果：**
+
+![電子密度マップ](Figures/Figure_4.png)
+
+*各電子のサンプル位置を2次元確率密度としてプロットする。2つの陽子（×印）の間に密度が集中しており、結合性分子軌道と整合する。*
+
+---
+
+## 使用ツール
+
+Python、NumPy（数値配列・ベクトル化演算）、Matplotlib（グラフ描画）、SciPy（モースポテンシャルのカーブフィッティング）。
