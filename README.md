@@ -15,28 +15,26 @@ to predict two things about the hydrogen molecule (H₂):
 The problem: the configuration of molecules more complex than a single
 hydrogen atom cannot be calculated directly, and therefore has to be solved
 using computational methods. A molecule naturally settles into whatever
-configuration has the least energy. This project aims to find the
+configuration has the least energy、therefore this project aims to find the
 configuration of the hydrogen molecule with the least energy, using the
-following computational methods.
+following computational methods:
 
 **Monte Carlo integration** is used to estimate the molecule's energy for a
 given trial wavefunction. The energy is defined mathematically as an integral
-over all possible positions of every electron — but this integral has no
-closed-form solution once more than one electron is involved, and can't be
-evaluated on a grid either, since the number of grid points needed grows
-exponentially with the number of dimensions. Monte Carlo integration gets
-around this by approximating the integral as an average: instead of
+over all possible positions of every electron, but this integral has no
+closed-form solution once more than one electron is involved. Monte Carlo integration gets
+around this by approximating the integral as an average. Instead of
 integrating over every possible position, it samples a large number of
 positions, calculates the energy at each one, and averages the results. The
 more samples used, the more accurate the estimate.
 
 **The Metropolis algorithm** is the method used to generate those samples
-correctly. The samples can't just be picked uniformly at random — they need
+correctly. The samples can't just be picked uniformly at random, they need
 to be distributed according to the probability density of the wavefunction,
 |ψ|², so that positions where the electron is more likely to be found are
 sampled more often. The Metropolis algorithm achieves this by proposing a
 small random step from the current position, then accepting or rejecting it
-based on the ratio of probability densities at the new and old positions: a
+based on the ratio of probability densities at the new and old positions. A
 move to a more probable position is always accepted, while a move to a less
 probable position is accepted only with a probability equal to that ratio.
 Repeating this many times produces a sequence of sample positions whose
@@ -46,14 +44,12 @@ needed for the Monte Carlo estimate above to be valid.
 **Simulated annealing** is used to optimise the parameters of the trial
 wavefunction itself. The trial wavefunction's exact shape depends on one or
 more unknown parameters, and the values of these parameters that minimise
-the energy are not known in advance — they must be found by search.
+the energy are not known in advance, they must be found by search.
 Simulated annealing performs this search by proposing a random change to a
 parameter, accepting it immediately if it lowers the energy, and accepting
 it with a probability that decreases over time if it raises the energy. This
 controlled chance of accepting a worse move allows the search to escape
-local minima — parameter values that look optimal in their immediate
-neighbourhood but aren't the true minimum — rather than converging
-prematurely on the first reasonable value it finds. As the search
+local minima, rather than converging prematurely on the first reasonable value it finds. As the search
 progresses, that acceptance probability is steadily reduced (referred to as
 "cooling"), so the search becomes increasingly selective and settles on a
 final set of parameter values.
@@ -70,11 +66,11 @@ prediction for the configuration of the hydrogen molecule.
 
 ## File 1: `finite_difference_test.py` — validating the numerical derivative
 
-The energy calculations in every later file depend on computing a second
+The energy calculations depend on computing a second
 derivative of the wavefunction at sampled points. Computers can't perform
 exact calculus on an arbitrary function, so this is approximated instead,
 using a method called the 2nd-order central-difference formula. This file
-checks that approximation is accurate before relying on it elsewhere.
+checks that approximation is accurate.
 
 The test uses the ground-state wavefunction of the harmonic oscillator, a
 standard system whose exact second derivative is known analytically. The
@@ -90,11 +86,10 @@ For larger step sizes, the error decreases as the step size shrinks, exactly
 as predicted by the formula's theoretical accuracy. Below a certain step
 size, however, the error starts increasing again. This happens because the
 calculation involves subtracting nearly-equal numbers, and a computer can
-only store numbers to a fixed number of significant digits — once the step
+only store numbers to a fixed number of significant digits. Once the step
 size is small enough, that subtraction is dominated by floating-point
 rounding error rather than the true difference being measured. This file
-identifies the step size that minimises total error, balancing these two
-competing effects, and that step size is used in every later file.
+identifies the step size that minimises total error, and that step size is used in every later file.
 
 ---
 
@@ -126,17 +121,14 @@ density (red), confirming the Metropolis algorithm is sampling correctly.*
 
 This file extends the method to a single hydrogen atom (one proton, one
 electron) in full three-dimensional space. The exact ground-state energy
-for this system is also known, so it still serves as a validation case —
-but it introduces a feature that all later, harder problems share.
+for this system is also known, so it still serves as a validation case.
 
 The trial wavefunction used here, ψ(r; θ) = e^(−θr), depends on a
 variational parameter, θ, whose correct value isn't known in advance.
 Simulated annealing is used to search over θ: at each step, a new θ is
-proposed and its energy is estimated; the move is accepted if the energy
+proposed and its energy is estimated, the move is accepted if the energy
 decreases, and accepted anyway with a probability that depends on how much
 worse it is, and that gradually decreases over the course of the search.
-This lets the search avoid settling on a value of θ that looks good locally
-but isn't the true minimum.
 
 **Results:**
 
@@ -150,8 +142,7 @@ progresses, settling near the known exact values of θ = 1 and E = −0.5.*
 ## File 4: `vmc_hydrogen_molecule.py` — the hydrogen molecule
 
 This file applies the full method to the actual system of interest: the
-hydrogen molecule, H₂ — two protons and two electrons, with no exact known
-solution to validate against, since the underlying equation has no
+hydrogen molecule, H₂ (two protons and two electrons). The underlying equation used here has no
 closed-form answer once electron-electron interaction is included.
 
 The trial wavefunction form is known as the **Slater-Jastrow** form. This
@@ -195,21 +186,20 @@ The full write-up (method, results, error analysis) is in [`report.pdf`](VMC_Rep
 
 ## 概要
 
-水素原子より複雑な分子の配置は解析的に求めることができず、数値計算による手法が必要となる。分子は最もエネルギーの低い配置に自然と落ち着く性質があるため、本プロジェクトではその最小エネルギー配置を以下の計算手法を組み合わせて求める。
+水素原子より複雑な分子の配置は解析的に求めることができず、数値計算による手法が必要となる。分子は最もエネルギーの低い配置に自然と落ち着く性質があるため、本プロジェクトではその最小エネルギー配置を以下の計算手法を組み合わせて求める:
 
-**モンテカルロ積分**は、与えられた試行波動関数に対するエネルギー期待値の推定に用いる。エネルギーは全電子の位置にわたる積分として定義されるが、電子が複数になると閉じた形の解が存在せず、格子上での数値積分も次元数に対して指数的にコストが増大するため現実的でない。モンテカルロ積分はこの問題を、積分を大量のサンプルの平均として近似することで回避する。サンプル数が増えるほど推定精度が向上する。
+**モンテカルロ積分**は、与えられた試行波動関数に対するエネルギー期待値の推定に用いる。エネルギーは全電子の位置にわたる積分ですが、電子が複数になると解析的に解けません。モンテカルロ積分はこの問題を、積分を大量のサンプルの平均として近似することで回避する。サンプル数が増えるほど推定精度が向上する。
 
-**メトロポリス法**は、上記のサンプルを正しく生成するためのアルゴリズムである。サンプルは一様乱数で生成するのではなく、波動関数の確率密度|ψ|²に従って分布させる必要がある。メトロポリス法では、現在の位置から小さなランダムステップを提案し、新旧の確率密度の比に基づいて採否を決定する。より確率の高い位置への移動は必ず受理し、より低い位置への移動は確率密度の比に等しい確率で受理する。この操作を多数回繰り返すことで、サンプルの分布が|ψ|²に収束する。
+**メトロポリス法**は、上記のサンプルを正しく生成するためのアルゴリズムである。サンプルは一様にランダムに生成するのではなく、波動関数の確率密度|ψ|²に従って分布させる必要がある。メトロポリス法では、現在の位置から小さなランダムステップを提案し、新旧の確率密度の比に基づいて採否を決定する。より確率の高い位置への移動は必ず採用し、より低い位置への移動は確率密度の比に等しい確率で採用する。この操作を多数回繰り返すことで、サンプルの分布が|ψ|²に近づいていく。
 
-**シミュレーテッドアニーリング**は、試行波動関数の変分パラメータの最適化に用いる。試行波動関数の形状は1つ以上の未知パラメータに依存しており、エネルギーを最小化するパラメータ値は事前には分からないため、探索によって求める必要がある。シミュレーテッドアニーリングでは、パラメータにランダムな変化を提案し、エネルギーが下がれば即座に受理し、上がる場合でも時間とともに減少する確率で受理する。この「悪化を許容する確率」により、局所最小値への早期収束を回避できる。探索が進むにつれてこの受理確率を段階的に低下（冷却）させ、最終的な解へと収束させる。
+**Simulated annealing**は、試行波動関数のパラメータを最適化に用いる。試行波動関数はパラメータに依存しており、エネルギーを最小化するパラメータの値はあらかじめ分からないため、探して求める必要がある。Simulated annealingでは、パラメータにランダムな変化を提案し、エネルギーが下がれば即座に採用し、上がる場合でも時間とともに減少する確率で採用する。この「悪化を許容する確率」により、局所最小値にはまり込むのを防げる。時間が進むにつれてこの受理確率を少しずつ低下させ、最終的な解へと収束させる。
 
-これら3つの手法はループを形成する。シミュレーテッドアニーリングが変分パラメータの候補を提案し、メトロポリス法がその波動関数に従う電子位置サンプルを生成し、モンテカルロ積分がサンプルからエネルギーを推定し、その結果をシミュレーテッドアニーリングにフィードバックしてパラメータの採否を決定する。このループの最終的な最小エネルギー結果が、水素分子の配置に対する本プロジェクトの予測値となる。
+Simulated annealingが変分パラメータの候補を提案し、メトロポリス法がその波動関数に従う電子位置サンプルを生成し、モンテカルロ積分がサンプルからエネルギーを推定し、その結果をSimulated annealingにフィードバックしてパラメータの採否を決定する。このループで得られる最終的なエネルギーが、水素分子の最小エネルギーとなる。
 
----
 
 ## ファイル1：`finite_difference_test.py` — 数値微分の検証
 
-以降のすべてのファイルにおけるエネルギー計算は、サンプル点での波動関数の2階微分の計算に依存する。コンピュータは任意の関数に対して厳密な微積分を実行できないため、2次中心差分公式による近似を使用する。本ファイルでは、この近似を実際の計算に使用する前に精度を検証する。
+エネルギー計算は、サンプル点での波動関数の2階微分の計算を必要とする。コンピュータは任意の関数に対して厳密な微積分を実行できないため、2次中心差分公式による近似を使用する。本ファイルでは、この近似を実際の計算に使用する前に精度を検証する。
 
 テストには調和振動子の基底状態波動関数を使用する。この系は2階微分の厳密解が解析的に知られており、広範なステップ幅にわたって数値近似との比較が可能である。また参考として4次中心差分公式との比較も行う。
 
